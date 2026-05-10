@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
@@ -45,6 +46,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _bioController = TextEditingController(text: profile.bio);
       _initialized = true;
     }
+  }
+
+  /// Opens the gallery picker and dispatches [ProfileAvatarUploadRequested].
+  Future<void> _pickAvatar(BuildContext context, String uid) async {
+    final XFile? file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    final ext = '.${file.path.split('.').last.toLowerCase()}';
+    if (!context.mounted) return;
+    context.read<ProfileBloc>().add(
+          ProfileAvatarUploadRequested(uid: uid, bytes: bytes, extension: ext),
+        );
   }
 
   /// Validates the form and dispatches [ProfileUpdateRequested].
@@ -123,24 +139,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Avatar with upload affordance.
-                  // NOTE: Avatar upload requires the `image_picker` package
-                  // (package proposal pending board approval — see SOCAA-33).
-                  // Once approved, replace this stub with an ImagePicker call
-                  // and dispatch ProfileAvatarUploadRequested.
                   AvatarWidget(
                     displayName: profile.displayName,
                     avatarUrl: profile.avatarUrl,
                     radius: 56,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Avatar upload coming soon — pending package approval.',
-                          ),
-                        ),
-                      );
-                    },
+                    onTap: isSaving ? null : () => _pickAvatar(context, uid),
                   ),
                   const SizedBox(height: 32),
                   TextFormField(

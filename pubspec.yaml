@@ -48,6 +48,9 @@ dependencies:
   # Navigation (approved)
   go_router: ^14.0.0
 
+  # Media (approved)
+  image_picker: ^1.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
