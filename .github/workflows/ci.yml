@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  flutter-ci:
+    name: Flutter Analyze & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: social_network
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: social_network
+        run: flutter analyze --fatal-infos
+
+      - name: Run tests with coverage
+        working-directory: social_network
+        run: flutter test --coverage
+
+      - name: Install lcov
+        run: sudo apt-get install -y lcov
+
+      - name: Enforce coverage thresholds
+        working-directory: social_network
+        run: |
+          set -euo pipefail
+          LCOV="coverage/lcov.info"
+
+          check_coverage() {
+            local label="$1"
+            local pattern="$2"
+            local threshold="$3"
+
+            lcov --extract "$LCOV" "$pattern" \
+              -o /tmp/cov_subset.info --quiet 2>/dev/null || true
+
+            if [ ! -s /tmp/cov_subset.info ]; then
+              echo "WARN: No coverage data for $label ($pattern) — skipping"
+              return 0
+            fi
+
+            local summary
+            summary=$(lcov --summary /tmp/cov_subset.info 2>&1)
+
+            local pct
+            pct=$(echo "$summary" | grep -oP 'lines[^:]*:\s+\K[\d.]+(?=%)' | head -1)
+
+            if [ -z "$pct" ]; then
+              echo "WARN: Could not parse line coverage for $label — skipping"
+              return 0
+            fi
+
+            echo "$label coverage: ${pct}% (threshold: ${threshold}%)"
+
+            if awk -v p="$pct" -v t="$threshold" 'BEGIN { exit !(p < t) }'; then
+              echo "FAIL: $label coverage ${pct}% is below the required ${threshold}%"
+              exit 1
+            fi
+            echo "PASS: $label coverage ${pct}% meets threshold"
+          }
+
+          check_coverage "BLoC"       "*/presentation/bloc/*"        90
+          check_coverage "Repository" "*/data/repositories/*"        80
+          check_coverage "UI"         "*/presentation/screens/*"     70
