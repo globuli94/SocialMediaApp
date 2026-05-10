@@ -10,6 +10,7 @@ import 'package:social_network/features/auth/domain/repositories/auth_repository
 import 'package:social_network/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/signup_screen.dart';
+import 'package:social_network/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 /// A [ChangeNotifier] that triggers a router refresh whenever the auth stream
@@ -72,6 +73,11 @@ GoRouter createRouter({required AuthRepository authRepository}) {
         path: '/home',
         builder: (BuildContext context, GoRouterState state) =>
             const AppShellScreen(),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (BuildContext context, GoRouterState state) =>
+            const EditProfileScreen(),
       ),
     ],
   );

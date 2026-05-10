@@ -54,6 +54,9 @@ class AuthRemoteDataSource {
     await _firestore.collection('users').doc(user.uid).set({
       'uid': user.uid,
       'displayName': displayName,
+      'bio': '',
+      'avatarUrl': null,
+      'postCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
