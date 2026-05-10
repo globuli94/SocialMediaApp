@@ -21,22 +21,18 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        working-directory: social_network
         run: flutter pub get
 
       - name: Analyze
-        working-directory: social_network
         run: flutter analyze --fatal-infos
 
       - name: Run tests with coverage
-        working-directory: social_network
         run: flutter test --coverage
 
       - name: Install lcov
         run: sudo apt-get install -y lcov
 
       - name: Enforce coverage thresholds
-        working-directory: social_network
         run: |
           set -euo pipefail
           LCOV="coverage/lcov.info"
