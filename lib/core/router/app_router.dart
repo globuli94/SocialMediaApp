@@ -8,9 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:social_network/features/auth/domain/repositories/auth_repository.dart';
 import 'package:social_network/features/auth/presentation/screens/forgot_password_screen.dart';
-import 'package:social_network/features/auth/presentation/screens/home_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/signup_screen.dart';
+import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 /// A [ChangeNotifier] that triggers a router refresh whenever the auth stream
 /// emits a new value.
@@ -71,7 +71,7 @@ GoRouter createRouter({required AuthRepository authRepository}) {
       GoRoute(
         path: '/home',
         builder: (BuildContext context, GoRouterState state) =>
-            const HomeScreen(),
+            const AppShellScreen(),
       ),
     ],
   );
