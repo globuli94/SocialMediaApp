@@ -141,7 +141,7 @@ void main() {
       const extension = '.jpg';
       final bytes = Uint8List.fromList([1, 2, 3]);
       const expectedUrl = 'https://storage.example.com/avatars/user-123.jpg';
-      const path = 'avatars/$uid$extension';
+      const path = 'avatars/$uid';
 
       when(() => storageService.uploadBytes(path, bytes))
           .thenAnswer((_) async {});
