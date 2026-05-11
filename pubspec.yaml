@@ -40,12 +40,16 @@ dependencies:
   firebase_core: ^3.0.0
   firebase_auth: ^5.0.0
   cloud_firestore: ^5.0.0
+  firebase_storage: ^12.0.0
 
   # Utilities (transitive of flutter_bloc, but declared explicitly for lint)
   equatable: ^2.0.0
 
   # Navigation (approved)
   go_router: ^14.0.0
+
+  # Media (approved)
+  image_picker: ^1.0.0
 
 dev_dependencies:
   flutter_test:

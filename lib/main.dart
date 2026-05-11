@@ -9,6 +9,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -18,12 +19,20 @@ import 'package:social_network/features/auth/data/repositories/auth_repository_i
 import 'package:social_network/features/auth/domain/repositories/auth_repository.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
+import 'package:social_network/features/profile/data/datasources/profile_auth_service.dart';
+import 'package:social_network/features/profile/data/datasources/profile_firestore_service.dart';
+import 'package:social_network/features/profile/data/datasources/profile_remote_data_source.dart';
+import 'package:social_network/features/profile/data/datasources/profile_storage_service.dart';
+import 'package:social_network/features/profile/data/repositories/profile_repository_impl.dart';
+import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
+import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/firebase_options.dart';
 
 /// Application entry point.
 ///
 /// Initialises Firebase before the widget tree is created, then mounts
-/// [SocialNetworkApp] which provides [AuthBloc] and [GoRouter] to the tree.
+/// [SocialNetworkApp] which provides [AuthBloc], [ProfileBloc], and
+/// [GoRouter] to the tree.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -32,7 +41,8 @@ void main() async {
   runApp(const SocialNetworkApp());
 }
 
-/// Root widget that constructs and provides [AuthBloc] and [GoRouter].
+/// Root widget that constructs and provides [AuthBloc], [ProfileBloc], and
+/// [GoRouter].
 class SocialNetworkApp extends StatefulWidget {
   /// Creates a [SocialNetworkApp].
   const SocialNetworkApp({super.key});
@@ -43,7 +53,9 @@ class SocialNetworkApp extends StatefulWidget {
 
 class _SocialNetworkAppState extends State<SocialNetworkApp> {
   late final AuthRepository _authRepository;
+  late final ProfileRepository _profileRepository;
   late final AuthBloc _authBloc;
+  late final ProfileBloc _profileBloc;
   late final GoRouter _router;
 
   @override
@@ -55,21 +67,37 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
         firestore: FirebaseFirestore.instance,
       ),
     );
+    _profileRepository = ProfileRepositoryImpl(
+      dataSource: ProfileRemoteDataSource(
+        firestoreService: FirebaseProfileFirestoreService(
+          FirebaseFirestore.instance,
+        ),
+        storageService: FirebaseProfileStorageService(
+          FirebaseStorage.instance,
+        ),
+        authService: FirebaseProfileAuthService(FirebaseAuth.instance),
+      ),
+    );
     _authBloc = AuthBloc(authRepository: _authRepository)
       ..add(const AuthStarted());
+    _profileBloc = ProfileBloc(profileRepository: _profileRepository);
     _router = createRouter(authRepository: _authRepository);
   }
 
   @override
   void dispose() {
     _authBloc.close();
+    _profileBloc.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<AuthBloc>.value(
-      value: _authBloc,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: _authBloc),
+        BlocProvider<ProfileBloc>.value(value: _profileBloc),
+      ],
       child: MaterialApp.router(
         title: 'Social Network',
         theme: ThemeData(

@@ -22,6 +22,7 @@ Stores public profile data for each registered user.
 | bio | string | no | Short user biography |
 | avatarUrl | string | no | URL to profile picture in Firebase Storage |
 | createdAt | timestamp | yes | Account creation time |
+| postCount | number | no | Cached count of the user's posts — default 0 |
 
 ---
 
