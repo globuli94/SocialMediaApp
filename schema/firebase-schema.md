@@ -37,6 +37,7 @@ Stores posts created by users and displayed in the feed.
 | content | string | yes | Text body of the post |
 | createdAt | timestamp | yes | Time the post was published |
 | likeCount | number | yes | Cached count of likes — default 0 |
+| imageUrl | string | no | URL to post image in Firebase Storage; null/absent if text-only post |
 
 ---
 
