@@ -64,14 +64,14 @@ class ProfileRemoteDataSource {
     });
   }
 
-  /// Uploads [bytes] to `avatars/{uid}{extension}` in Firebase Storage and
+  /// Uploads [bytes] to `avatars/{uid}` in Firebase Storage and
   /// returns the public download URL.
   Future<String> uploadAvatarBytes({
     required String uid,
     required Uint8List bytes,
     required String extension,
   }) async {
-    final path = 'avatars/$uid$extension';
+    final path = 'avatars/$uid';
     await _storageService.uploadBytes(path, bytes);
     return _storageService.getDownloadUrl(path);
   }
