@@ -143,7 +143,7 @@ void main() {
       const expectedUrl = 'https://storage.example.com/avatars/user-123.jpg';
       const path = 'avatars/$uid';
 
-      when(() => storageService.uploadBytes(path, bytes))
+      when(() => storageService.uploadBytes(path, bytes, 'image/jpeg'))
           .thenAnswer((_) async {});
       when(() => storageService.getDownloadUrl(path))
           .thenAnswer((_) async => expectedUrl);
@@ -152,12 +152,13 @@ void main() {
           uid: uid, bytes: bytes, extension: extension);
 
       expect(result, equals(expectedUrl));
-      verify(() => storageService.uploadBytes(path, bytes)).called(1);
+      verify(() => storageService.uploadBytes(path, bytes, 'image/jpeg')).called(1);
       verify(() => storageService.getDownloadUrl(path)).called(1);
     });
 
     test('propagates exception when uploadBytes throws', () async {
       when(() => storageService.uploadBytes(
+            any(),
             any(),
             any(),
           )).thenThrow(Exception('upload failed'));

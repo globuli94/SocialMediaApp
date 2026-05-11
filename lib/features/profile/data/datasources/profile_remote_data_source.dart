@@ -72,7 +72,12 @@ class ProfileRemoteDataSource {
     required String extension,
   }) async {
     final path = 'avatars/$uid';
-    await _storageService.uploadBytes(path, bytes);
+    final contentType = switch (extension) {
+      '.png' => 'image/png',
+      '.webp' => 'image/webp',
+      _ => 'image/jpeg',
+    };
+    await _storageService.uploadBytes(path, bytes, contentType);
     return _storageService.getDownloadUrl(path);
   }
 
