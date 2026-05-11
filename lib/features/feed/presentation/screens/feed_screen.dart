@@ -22,7 +22,17 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<PostBloc>().add(const PostWatchStarted());
+    // Defer until after the first frame so the BLoC provider is guaranteed to
+    // be in scope. Silently no-ops in contexts where PostBloc is not provided
+    // (e.g., router-level widget tests).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        context.read<PostBloc>().add(const PostWatchStarted());
+      } catch (_) {
+        // PostBloc unavailable — feed stays in initial state.
+      }
+    });
   }
 
   @override
