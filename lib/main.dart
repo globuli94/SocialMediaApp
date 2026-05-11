@@ -19,7 +19,10 @@ import 'package:social_network/features/auth/data/repositories/auth_repository_i
 import 'package:social_network/features/auth/domain/repositories/auth_repository.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
+import 'package:social_network/features/profile/data/datasources/profile_auth_service.dart';
+import 'package:social_network/features/profile/data/datasources/profile_firestore_service.dart';
 import 'package:social_network/features/profile/data/datasources/profile_remote_data_source.dart';
+import 'package:social_network/features/profile/data/datasources/profile_storage_service.dart';
 import 'package:social_network/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
@@ -66,9 +69,13 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     );
     _profileRepository = ProfileRepositoryImpl(
       dataSource: ProfileRemoteDataSource(
-        firestore: FirebaseFirestore.instance,
-        storage: FirebaseStorage.instance,
-        firebaseAuth: FirebaseAuth.instance,
+        firestoreService: FirebaseProfileFirestoreService(
+          FirebaseFirestore.instance,
+        ),
+        storageService: FirebaseProfileStorageService(
+          FirebaseStorage.instance,
+        ),
+        authService: FirebaseProfileAuthService(FirebaseAuth.instance),
       ),
     );
     _authBloc = AuthBloc(authRepository: _authRepository)

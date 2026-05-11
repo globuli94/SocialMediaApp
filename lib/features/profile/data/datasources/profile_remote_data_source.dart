@@ -1,13 +1,14 @@
 // lib/features/profile/data/datasources/profile_remote_data_source.dart
 //
 // ProfileRemoteDataSource — Firestore and Firebase Storage operations for
-// user profiles.
+// user profiles.  All Firebase SDK types are accessed through abstract
+// service interfaces so that tests can supply mocktail doubles.
 
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:social_network/features/profile/data/datasources/profile_auth_service.dart';
+import 'package:social_network/features/profile/data/datasources/profile_firestore_service.dart';
+import 'package:social_network/features/profile/data/datasources/profile_storage_service.dart';
 
 /// Data source that performs Firestore and Firebase Storage operations for
 /// user profiles.
@@ -16,50 +17,39 @@ import 'package:firebase_storage/firebase_storage.dart';
 class ProfileRemoteDataSource {
   /// Creates a [ProfileRemoteDataSource].
   ProfileRemoteDataSource({
-    required FirebaseFirestore firestore,
-    required FirebaseStorage storage,
-    required FirebaseAuth firebaseAuth,
-  })  : _firestore = firestore,
-        _storage = storage,
-        _firebaseAuth = firebaseAuth;
+    required ProfileFirestoreService firestoreService,
+    required ProfileStorageService storageService,
+    required ProfileAuthService authService,
+  })  : _firestoreService = firestoreService,
+        _storageService = storageService,
+        _authService = authService;
 
-  final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
-  final FirebaseAuth _firebaseAuth;
+  final ProfileFirestoreService _firestoreService;
+  final ProfileStorageService _storageService;
+  final ProfileAuthService _authService;
 
   /// Returns the raw Firestore data for [uid].
   ///
   /// If no document exists, creates one with default values derived from the
   /// currently signed-in Firebase Auth user and returns those defaults.
   Future<Map<String, dynamic>> fetchProfile(String uid) async {
-    final ref = _firestore.collection('users').doc(uid);
-    final snap = await ref.get();
+    final data = await _firestoreService.getUser(uid);
 
-    if (snap.exists) {
-      return snap.data()!;
+    if (data != null) {
+      return data;
     }
 
     // Document missing — create with defaults so the profile always exists.
-    final currentUser = _firebaseAuth.currentUser;
-    final displayName = currentUser?.email?.split('@').first ?? uid;
+    final displayName = _authService.currentUserEmail?.split('@').first ?? uid;
     final defaults = <String, dynamic>{
       'uid': uid,
       'displayName': displayName,
       'bio': '',
       'avatarUrl': null,
       'postCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
     };
-    await ref.set(defaults);
-
-    // Return without the server-timestamp sentinel so callers get real values.
-    return <String, dynamic>{
-      'uid': uid,
-      'displayName': displayName,
-      'bio': '',
-      'avatarUrl': null,
-      'postCount': 0,
-    };
+    await _firestoreService.createUser(uid, defaults);
+    return defaults;
   }
 
   /// Writes [displayName] and [bio] to `users/{uid}`.
@@ -68,7 +58,7 @@ class ProfileRemoteDataSource {
     required String displayName,
     required String bio,
   }) async {
-    await _firestore.collection('users').doc(uid).update(<String, dynamic>{
+    await _firestoreService.updateUser(uid, {
       'displayName': displayName,
       'bio': bio,
     });
@@ -81,9 +71,9 @@ class ProfileRemoteDataSource {
     required Uint8List bytes,
     required String extension,
   }) async {
-    final ref = _storage.ref('avatars/$uid$extension');
-    await ref.putData(bytes);
-    return ref.getDownloadURL();
+    final path = 'avatars/$uid$extension';
+    await _storageService.uploadBytes(path, bytes);
+    return _storageService.getDownloadUrl(path);
   }
 
   /// Updates the `avatarUrl` field on `users/{uid}` in Firestore.
@@ -91,8 +81,6 @@ class ProfileRemoteDataSource {
     required String uid,
     required String avatarUrl,
   }) async {
-    await _firestore.collection('users').doc(uid).update(<String, dynamic>{
-      'avatarUrl': avatarUrl,
-    });
+    await _firestoreService.updateUser(uid, {'avatarUrl': avatarUrl});
   }
 }
