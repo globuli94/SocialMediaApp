@@ -218,13 +218,12 @@ void main() {
 
       // Simulate sign-in: update currentUser and emit on auth stream
       when(() => mockRepo.currentUser).thenReturn(_testUser);
-      authController.add(_testUser);
-      // Yield to the event loop so the stream listener fires and calls
-      // notifyListeners, then pump twice to process the router rebuild and the
-      // resulting navigation to /home.
-      // pumpAndSettle() is not used because ProfileScreen shows a
-      // CircularProgressIndicator whose animation never settles.
-      await Future<void>.microtask(() {});
+      // runAsync escapes fakeAsync so the real event loop can deliver the stream
+      // event to GoRouterRefreshStream before we pump the widget tree.
+      await tester.runAsync(() async {
+        authController.add(_testUser);
+        await Future<void>.delayed(Duration.zero);
+      });
       await tester.pump();
       await tester.pump();
 
