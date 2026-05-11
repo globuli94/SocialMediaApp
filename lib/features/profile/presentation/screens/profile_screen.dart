@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
@@ -60,11 +61,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
-          if (isOwnProfile)
+          if (isOwnProfile) ...[
             TextButton(
               onPressed: () => context.push('/profile/edit'),
               child: const Text('Edit'),
             ),
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Log out',
+              onPressed: () =>
+                  context.read<AuthBloc>().add(const AuthSignOutRequested()),
+            ),
+          ],
         ],
       ),
       body: BlocBuilder<ProfileBloc, ProfileState>(
