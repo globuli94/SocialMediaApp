@@ -224,7 +224,7 @@ void main() {
       // resulting navigation to /home.
       // pumpAndSettle() is not used because ProfileScreen shows a
       // CircularProgressIndicator whose animation never settles.
-      await Future<void>.delayed(Duration.zero);
+      await Future<void>.microtask(() {});
       await tester.pump();
       await tester.pump();
 
