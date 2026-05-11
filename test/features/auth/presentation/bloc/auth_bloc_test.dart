@@ -246,6 +246,18 @@ void main() {
         expect: () => <AuthState>[],
         verify: (_) => verify(() => mockRepository.signOut()).called(1),
       );
+
+      blocTest<AuthBloc, AuthState>(
+        'propagates error when signOut throws',
+        setUp: () {
+          when(() => mockRepository.signOut())
+              .thenThrow(Exception('network error'));
+        },
+        build: () => AuthBloc(authRepository: mockRepository),
+        act: (bloc) => bloc.add(const AuthSignOutRequested()),
+        expect: () => <AuthState>[],
+        errors: () => [isA<Exception>()],
+      );
     });
   });
 }

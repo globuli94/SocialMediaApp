@@ -96,6 +96,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
+    registerFallbackValue(const AuthSignOutRequested());
   });
 
   setUp(() {
@@ -274,6 +275,67 @@ void main() {
       expect(find.text('Could not load profile.'), findsOneWidget);
       expect(find.text('Something went wrong'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Logout button — own profile
+  // -------------------------------------------------------------------------
+
+  group('Logout button', () {
+    setUp(() {
+      when(() => profileBloc.state)
+          .thenReturn(const ProfileLoaded(profile: testProfile));
+    });
+
+    testWidgets('shows logout IconButton for own profile (uid == null)',
+        (tester) async {
+      await tester.pumpWidget(
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+      );
+
+      expect(find.byIcon(Icons.logout), findsOneWidget);
+    });
+
+    testWidgets('shows logout IconButton when uid matches current user',
+        (tester) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          uid: 'uid-me',
+        ),
+      );
+
+      expect(find.byIcon(Icons.logout), findsOneWidget);
+    });
+
+    testWidgets('does not show logout button for another user profile',
+        (tester) async {
+      when(() => profileBloc.state)
+          .thenReturn(const ProfileLoaded(profile: otherProfile));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.byIcon(Icons.logout), findsNothing);
+    });
+
+    testWidgets('tapping logout button dispatches AuthSignOutRequested',
+        (tester) async {
+      await tester.pumpWidget(
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+      );
+
+      await tester.tap(find.byIcon(Icons.logout));
+      await tester.pump();
+
+      verify(() => authBloc.add(const AuthSignOutRequested())).called(1);
     });
   });
 }
