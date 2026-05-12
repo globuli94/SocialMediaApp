@@ -64,6 +64,9 @@ dev_dependencies:
   # App icon generation (approved)
   flutter_launcher_icons: ^0.14.3
 
+  # Firestore fake for tests (authorized by CTO in SOCAA-75)
+  fake_cloud_firestore: ^3.0.0
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

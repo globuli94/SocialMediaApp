@@ -23,6 +23,9 @@ import 'package:social_network/features/profile/data/datasources/profile_auth_se
 import 'package:social_network/features/profile/data/datasources/profile_firestore_service.dart';
 import 'package:social_network/features/profile/data/datasources/profile_remote_data_source.dart';
 import 'package:social_network/features/profile/data/datasources/profile_storage_service.dart';
+import 'package:social_network/features/posts/data/repositories/post_repository_impl.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
@@ -54,8 +57,10 @@ class SocialNetworkApp extends StatefulWidget {
 class _SocialNetworkAppState extends State<SocialNetworkApp> {
   late final AuthRepository _authRepository;
   late final ProfileRepository _profileRepository;
+  late final PostRepository _postRepository;
   late final AuthBloc _authBloc;
   late final ProfileBloc _profileBloc;
+  late final PostBloc _postBloc;
   late final GoRouter _router;
 
   @override
@@ -78,9 +83,14 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
         authService: FirebaseProfileAuthService(FirebaseAuth.instance),
       ),
     );
+    _postRepository = PostRepositoryImpl(
+      firestore: FirebaseFirestore.instance,
+      storage: FirebaseStorage.instance,
+    );
     _authBloc = AuthBloc(authRepository: _authRepository)
       ..add(const AuthStarted());
     _profileBloc = ProfileBloc(profileRepository: _profileRepository);
+    _postBloc = PostBloc(postRepository: _postRepository);
     _router = createRouter(authRepository: _authRepository);
   }
 
@@ -88,6 +98,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
   void dispose() {
     _authBloc.close();
     _profileBloc.close();
+    _postBloc.close();
     super.dispose();
   }
 
@@ -97,6 +108,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
       providers: [
         BlocProvider<AuthBloc>.value(value: _authBloc),
         BlocProvider<ProfileBloc>.value(value: _profileBloc),
+        BlocProvider<PostBloc>.value(value: _postBloc),
       ],
       child: MaterialApp.router(
         title: 'Social Network',
