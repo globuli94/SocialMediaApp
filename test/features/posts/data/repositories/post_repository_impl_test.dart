@@ -1,98 +1,181 @@
 // test/features/posts/data/repositories/post_repository_impl_test.dart
 //
-// Data-layer tests for PostRemoteDataSource — covers watchFeed, createPost
-// (with and without image), and deletePost, satisfying the ≥ 80% repository
-// coverage threshold.
+// Unit tests for PostRepositoryImpl — covers watchPosts, createPost (with and
+// without image), and deletePost, satisfying the ≥ 80% repository coverage
+// threshold.
 //
-// PostRepositoryImpl delegates directly to FirebaseFirestore/FirebaseStorage
-// (which are sealed in cloud_firestore v5 and cannot be mocked). These tests
-// therefore target PostRemoteDataSource, which depends on the mockable
-// PostFirestoreService and PostStorageService abstractions. This approach
-// follows the same pattern used for the Profile feature (data-source mock
-// rather than Firebase mock) and avoids subtype_of_sealed_class lint errors.
+// Firestore operations are exercised against FakeFirebaseFirestore so that
+// sealed internal Firestore types (Query, DocumentReference, etc.) remain
+// in-memory without hitting real Firebase.  Firebase Storage is replaced by
+// mocktail stubs.  UploadTask and TaskSnapshot are wrapped by thin Fake
+// helpers (private to this file) because their constructors are private.
 
+import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:social_network/features/posts/data/datasources/post_firestore_service.dart';
-import 'package:social_network/features/posts/data/datasources/post_remote_data_source.dart';
-import 'package:social_network/features/posts/data/datasources/post_storage_service.dart';
+import 'package:social_network/features/posts/data/repositories/post_repository_impl.dart';
+import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 
 // ---------------------------------------------------------------------------
-// Mocks
+// Mocks & fakes
 // ---------------------------------------------------------------------------
 
-class MockPostFirestoreService extends Mock implements PostFirestoreService {}
+class MockFirebaseStorage extends Mock implements FirebaseStorage {}
 
-class MockPostStorageService extends Mock implements PostStorageService {}
+class MockReference extends Mock implements Reference {}
+
+/// Minimal [TaskSnapshot] fake — only exposes [ref] which is the only
+/// property accessed by [PostRepositoryImpl.createPost].
+class _FakeTaskSnapshot extends Fake implements TaskSnapshot {
+  _FakeTaskSnapshot(this._ref);
+  final Reference _ref;
+
+  @override
+  Reference get ref => _ref;
+}
+
+/// Minimal [UploadTask] fake.  Implements [Future]<[TaskSnapshot]> by
+/// delegating to [Future.value] so that `await uploadTask` resolves
+/// synchronously to the wrapped snapshot in tests.
+class _FakeUploadTask extends Fake implements UploadTask {
+  _FakeUploadTask(this._snapshot);
+  final TaskSnapshot _snapshot;
+
+  @override
+  Future<T> then<T>(
+    FutureOr<T> Function(TaskSnapshot) onValue, {
+    Function? onError,
+  }) =>
+      Future<TaskSnapshot>.value(_snapshot).then(onValue, onError: onError);
+
+  @override
+  Future<TaskSnapshot> catchError(
+    Function onError, {
+    bool Function(Object)? test,
+  }) =>
+      Future<TaskSnapshot>.value(_snapshot)
+          .catchError(onError, test: test);
+
+  @override
+  Future<TaskSnapshot> whenComplete(FutureOr<void> Function() action) =>
+      Future<TaskSnapshot>.value(_snapshot).whenComplete(action);
+
+  @override
+  Future<TaskSnapshot> timeout(
+    Duration timeLimit, {
+    FutureOr<TaskSnapshot> Function()? onTimeout,
+  }) =>
+      Future<TaskSnapshot>.value(_snapshot)
+          .timeout(timeLimit, onTimeout: onTimeout);
+
+  @override
+  Stream<TaskSnapshot> asStream() => Stream.value(_snapshot);
+}
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
-  late MockPostFirestoreService mockFirestoreService;
-  late MockPostStorageService mockStorageService;
-  late PostRemoteDataSource sut;
+  late FakeFirebaseFirestore fakeFirestore;
+  late MockFirebaseStorage mockStorage;
+  late PostRepositoryImpl sut;
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
-    registerFallbackValue(<String, dynamic>{});
   });
 
   setUp(() {
-    mockFirestoreService = MockPostFirestoreService();
-    mockStorageService = MockPostStorageService();
-
-    sut = PostRemoteDataSource(
-      firestoreService: mockFirestoreService,
-      storageService: mockStorageService,
+    fakeFirestore = FakeFirebaseFirestore();
+    mockStorage = MockFirebaseStorage();
+    sut = PostRepositoryImpl(
+      firestore: fakeFirestore,
+      storage: mockStorage,
     );
   });
 
   // -------------------------------------------------------------------------
-  // watchFeed
+  // watchPosts
   // -------------------------------------------------------------------------
 
-  group('watchFeed', () {
-    test('returns the stream emitted by PostFirestoreService.watchPosts',
-        () async {
-      final rawPosts = [
-        {
-          'id': 'post-1',
-          'authorUid': 'uid-alice',
-          'authorDisplayName': 'Alice',
-          'content': 'Hello',
-          'createdAt': DateTime(2026, 1, 1),
-        },
-        {
-          'id': 'post-2',
-          'authorUid': 'uid-bob',
-          'authorDisplayName': 'Bob',
-          'content': 'World',
-          'createdAt': DateTime(2026, 1, 2),
-          'imageUrl': 'https://example.com/img.jpg',
-        },
-      ];
-      when(() => mockFirestoreService.watchPosts())
-          .thenAnswer((_) => Stream.value(rawPosts));
-
-      final result = await sut.watchFeed().first;
-
-      expect(result.length, 2);
-      expect(result[0]['id'], 'post-1');
-      expect(result[1]['imageUrl'], 'https://example.com/img.jpg');
-      verify(() => mockFirestoreService.watchPosts()).called(1);
+  group('watchPosts', () {
+    test('emits empty list when collection is empty', () async {
+      final result = await sut.watchPosts().first;
+      expect(result, isEmpty);
     });
 
-    test('returns empty list when firestoreService emits an empty snapshot',
-        () async {
-      when(() => mockFirestoreService.watchPosts())
-          .thenAnswer((_) => Stream.value([]));
+    test('emits PostEntity list ordered by createdAt descending', () async {
+      final older = Timestamp.fromDate(DateTime(2026, 1, 1));
+      final newer = Timestamp.fromDate(DateTime(2026, 1, 2));
 
-      final result = await sut.watchFeed().first;
-      expect(result, isEmpty);
+      await fakeFirestore.collection('posts').doc('post-old').set({
+        'id': 'post-old',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'Older post',
+        'createdAt': older,
+        'likeCount': 0,
+      });
+      await fakeFirestore.collection('posts').doc('post-new').set({
+        'id': 'post-new',
+        'authorUid': 'uid-bob',
+        'authorDisplayName': 'Bob',
+        'content': 'Newer post',
+        'createdAt': newer,
+        'likeCount': 0,
+        'imageUrl': 'https://example.com/img.jpg',
+      });
+
+      final result = await sut.watchPosts().first;
+
+      expect(result, hasLength(2));
+      // Ordered newest-first.
+      expect(result.first.id, 'post-new');
+      expect(result.last.id, 'post-old');
+    });
+
+    test('maps all PostEntity fields correctly', () async {
+      final ts = Timestamp.fromDate(DateTime(2026, 3, 15));
+      await fakeFirestore.collection('posts').doc('p1').set({
+        'id': 'p1',
+        'authorUid': 'uid-charlie',
+        'authorDisplayName': 'Charlie',
+        'authorAvatarUrl': 'https://example.com/avatar.jpg',
+        'content': 'Hello world',
+        'createdAt': ts,
+        'likeCount': 5,
+        'imageUrl': 'https://example.com/post.jpg',
+      });
+
+      final entities = await sut.watchPosts().first;
+      final entity = entities.single;
+
+      expect(entity, isA<PostEntity>());
+      expect(entity.id, 'p1');
+      expect(entity.authorUid, 'uid-charlie');
+      expect(entity.authorDisplayName, 'Charlie');
+      expect(entity.authorAvatarUrl, 'https://example.com/avatar.jpg');
+      expect(entity.content, 'Hello world');
+      expect(entity.createdAt, DateTime(2026, 3, 15));
+      expect(entity.imageUrl, 'https://example.com/post.jpg');
+    });
+
+    test('uses DateTime.now() when createdAt is missing', () async {
+      await fakeFirestore.collection('posts').doc('p-no-ts').set({
+        'id': 'p-no-ts',
+        'authorUid': 'uid-x',
+        'authorDisplayName': 'X',
+        'content': 'No timestamp',
+        'likeCount': 0,
+      });
+
+      final entities = await sut.watchPosts().first;
+      expect(entities.single.createdAt, isA<DateTime>());
     });
   });
 
@@ -101,147 +184,68 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('createPost (no image)', () {
-    test('creates document and returns data map without imageUrl', () async {
-      when(() => mockFirestoreService.generatePostId())
-          .thenReturn('post-text-only');
-      when(() => mockFirestoreService.createPostWithId(any(), any()))
-          .thenAnswer((_) async {});
-      when(() => mockFirestoreService.adjustPostCount(any(), any()))
-          .thenAnswer((_) async {});
-
+    test('creates Firestore doc and returns PostEntity', () async {
       final result = await sut.createPost(
         authorUid: 'uid-alice',
         authorDisplayName: 'Alice',
         content: 'My first post',
       );
 
-      expect(result['id'], 'post-text-only');
-      expect(result['authorUid'], 'uid-alice');
-      expect(result['authorDisplayName'], 'Alice');
-      expect(result['content'], 'My first post');
-      expect(result['imageUrl'], isNull);
-      expect(result['createdAt'], isA<DateTime>());
+      expect(result, isA<PostEntity>());
+      expect(result.authorUid, 'uid-alice');
+      expect(result.authorDisplayName, 'Alice');
+      expect(result.content, 'My first post');
+      expect(result.imageUrl, isNull);
 
-      verify(() => mockFirestoreService.createPostWithId(
-            'post-text-only',
-            any(),
-          )).called(1);
-      verify(
-        () => mockFirestoreService.adjustPostCount('uid-alice', 1),
-      ).called(1);
-      verifyNever(
-        () => mockStorageService.uploadBytes(any(), any(), any()),
-      );
+      final docs = await fakeFirestore.collection('posts').get();
+      expect(docs.docs, hasLength(1));
+
+      verifyNever(() => mockStorage.ref(any()));
     });
 
-    test('includes authorAvatarUrl in returned map when provided', () async {
-      when(() => mockFirestoreService.generatePostId())
-          .thenReturn('post-with-avatar');
-      when(() => mockFirestoreService.createPostWithId(any(), any()))
-          .thenAnswer((_) async {});
-      when(() => mockFirestoreService.adjustPostCount(any(), any()))
-          .thenAnswer((_) async {});
-
+    test('includes authorAvatarUrl in returned entity when provided', () async {
       final result = await sut.createPost(
         authorUid: 'uid-alice',
         authorDisplayName: 'Alice',
         authorAvatarUrl: 'https://example.com/alice.jpg',
-        content: 'Post with avatar',
+        content: 'With avatar',
       );
 
-      expect(result['authorAvatarUrl'], 'https://example.com/alice.jpg');
-    });
-
-    test('omits authorAvatarUrl key when not provided', () async {
-      when(() => mockFirestoreService.generatePostId()).thenReturn('post-no-av');
-      when(() => mockFirestoreService.createPostWithId(any(), any()))
-          .thenAnswer((_) async {});
-      when(() => mockFirestoreService.adjustPostCount(any(), any()))
-          .thenAnswer((_) async {});
-
-      final result = await sut.createPost(
-        authorUid: 'uid-alice',
-        authorDisplayName: 'Alice',
-        content: 'No avatar',
-      );
-
-      expect(result.containsKey('authorAvatarUrl'), isFalse);
+      expect(result.authorAvatarUrl, 'https://example.com/alice.jpg');
     });
   });
 
   // -------------------------------------------------------------------------
-  // createPost — with image (.jpg → image/jpeg content type)
+  // createPost — with image
   // -------------------------------------------------------------------------
 
   group('createPost (with image)', () {
-    test('uploads image then creates document with imageUrl', () async {
-      const postId = 'post-img-id';
+    test('uploads image and returns PostEntity with imageUrl', () async {
+      const downloadUrl = 'https://storage.example.com/posts/post-1.jpg';
       final bytes = Uint8List.fromList([1, 2, 3]);
-      const storagePath = 'posts/$postId';
-      const downloadUrl = 'https://storage.example.com/posts/$postId';
 
-      when(() => mockFirestoreService.generatePostId()).thenReturn(postId);
-      when(
-        () => mockStorageService.uploadBytes(
-          storagePath,
-          any(),
-          'image/jpeg',
-        ),
-      ).thenAnswer((_) async {});
-      when(() => mockStorageService.getDownloadUrl(storagePath))
+      final mockUploadRef = MockReference();
+      final fakeSnapshot = _FakeTaskSnapshot(mockUploadRef);
+      final fakeTask = _FakeUploadTask(fakeSnapshot);
+
+      final mockRef = MockReference();
+      when(() => mockStorage.ref(any())).thenReturn(mockRef);
+      when(() => mockRef.putData(any())).thenAnswer((_) => fakeTask);
+      when(() => mockUploadRef.getDownloadURL())
           .thenAnswer((_) async => downloadUrl);
-      when(() => mockFirestoreService.createPostWithId(any(), any()))
-          .thenAnswer((_) async {});
-      when(() => mockFirestoreService.adjustPostCount(any(), any()))
-          .thenAnswer((_) async {});
 
       final result = await sut.createPost(
         authorUid: 'uid-alice',
         authorDisplayName: 'Alice',
-        content: 'Post with image',
+        content: 'Image post',
         imageBytes: bytes,
         imageExtension: '.jpg',
       );
 
-      expect(result['imageUrl'], downloadUrl);
-      verify(
-        () => mockStorageService.uploadBytes(storagePath, any(), 'image/jpeg'),
-      ).called(1);
-      verify(() => mockStorageService.getDownloadUrl(storagePath)).called(1);
-      verify(
-        () => mockFirestoreService.createPostWithId(postId, any()),
-      ).called(1);
-      verify(
-        () => mockFirestoreService.adjustPostCount('uid-alice', 1),
-      ).called(1);
-    });
-
-    test('uses image/png content type for .png extension', () async {
-      const postId = 'post-png-id';
-      const storagePath = 'posts/$postId';
-
-      when(() => mockFirestoreService.generatePostId()).thenReturn(postId);
-      when(
-        () => mockStorageService.uploadBytes(storagePath, any(), 'image/png'),
-      ).thenAnswer((_) async {});
-      when(() => mockStorageService.getDownloadUrl(storagePath))
-          .thenAnswer((_) async => 'https://example.com/posts/$postId');
-      when(() => mockFirestoreService.createPostWithId(any(), any()))
-          .thenAnswer((_) async {});
-      when(() => mockFirestoreService.adjustPostCount(any(), any()))
-          .thenAnswer((_) async {});
-
-      await sut.createPost(
-        authorUid: 'uid-alice',
-        authorDisplayName: 'Alice',
-        content: 'PNG image post',
-        imageBytes: Uint8List.fromList([1]),
-        imageExtension: '.png',
-      );
-
-      verify(
-        () => mockStorageService.uploadBytes(storagePath, any(), 'image/png'),
-      ).called(1);
+      expect(result.imageUrl, downloadUrl);
+      verify(() => mockStorage.ref(any())).called(1);
+      verify(() => mockRef.putData(any())).called(1);
+      verify(() => mockUploadRef.getDownloadURL()).called(1);
     });
   });
 
@@ -250,40 +254,78 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('deletePost', () {
-    test('deletes post document and decrements postCount (no image)', () async {
-      when(() => mockFirestoreService.deletePost(any()))
-          .thenAnswer((_) async {});
-      when(() => mockFirestoreService.adjustPostCount(any(), any()))
-          .thenAnswer((_) async {});
-
-      await sut.deletePost(postId: 'post-1', authorUid: 'uid-alice');
-
-      verify(() => mockFirestoreService.deletePost('post-1')).called(1);
-      verify(
-        () => mockFirestoreService.adjustPostCount('uid-alice', -1),
-      ).called(1);
-      verifyNever(() => mockStorageService.delete(any()));
+    test('deletes document when it does not exist (no-op)', () async {
+      // Should not throw even if doc is missing.
+      await expectLater(
+        sut.deletePost('non-existent-post'),
+        completes,
+      );
     });
 
-    test('deletes storage image then post document when imageUrl provided',
+    test('deletes existing document without imageUrl', () async {
+      await fakeFirestore.collection('posts').doc('p-del').set({
+        'id': 'p-del',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'To be deleted',
+        'createdAt': Timestamp.now(),
+        'likeCount': 0,
+      });
+
+      await sut.deletePost('p-del');
+
+      final snap = await fakeFirestore.collection('posts').doc('p-del').get();
+      expect(snap.exists, isFalse);
+      verifyNever(() => mockStorage.refFromURL(any()));
+    });
+
+    test('deletes storage image then document when imageUrl present', () async {
+      const imageUrl = 'gs://my-bucket/posts/p-img.jpg';
+      await fakeFirestore.collection('posts').doc('p-img').set({
+        'id': 'p-img',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'Image post',
+        'createdAt': Timestamp.now(),
+        'likeCount': 0,
+        'imageUrl': imageUrl,
+      });
+
+      final mockRef = MockReference();
+      when(() => mockStorage.refFromURL(imageUrl)).thenReturn(mockRef);
+      when(() => mockRef.delete()).thenAnswer((_) async {});
+
+      await sut.deletePost('p-img');
+
+      verify(() => mockStorage.refFromURL(imageUrl)).called(1);
+      verify(() => mockRef.delete()).called(1);
+
+      final snap = await fakeFirestore.collection('posts').doc('p-img').get();
+      expect(snap.exists, isFalse);
+    });
+
+    test('ignores storage delete error and still deletes Firestore doc',
         () async {
-      when(() => mockFirestoreService.deletePost(any()))
-          .thenAnswer((_) async {});
-      when(() => mockStorageService.delete(any())).thenAnswer((_) async {});
-      when(() => mockFirestoreService.adjustPostCount(any(), any()))
-          .thenAnswer((_) async {});
+      const imageUrl = 'gs://my-bucket/posts/p-err.jpg';
+      await fakeFirestore.collection('posts').doc('p-err').set({
+        'id': 'p-err',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'Error image post',
+        'createdAt': Timestamp.now(),
+        'likeCount': 0,
+        'imageUrl': imageUrl,
+      });
 
-      await sut.deletePost(
-        postId: 'post-2',
-        authorUid: 'uid-alice',
-        imageUrl: 'https://example.com/img.jpg',
-      );
+      final mockRef = MockReference();
+      when(() => mockStorage.refFromURL(imageUrl)).thenReturn(mockRef);
+      when(() => mockRef.delete()).thenThrow(Exception('storage error'));
 
-      verify(() => mockStorageService.delete('posts/post-2')).called(1);
-      verify(() => mockFirestoreService.deletePost('post-2')).called(1);
-      verify(
-        () => mockFirestoreService.adjustPostCount('uid-alice', -1),
-      ).called(1);
+      // Should complete without throwing.
+      await expectLater(sut.deletePost('p-err'), completes);
+
+      final snap = await fakeFirestore.collection('posts').doc('p-err').get();
+      expect(snap.exists, isFalse);
     });
   });
 }
