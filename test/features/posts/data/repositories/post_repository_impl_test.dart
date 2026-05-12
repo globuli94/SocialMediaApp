@@ -88,6 +88,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(SettableMetadata());
   });
 
   setUp(() {
@@ -220,19 +221,44 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('createPost (with image)', () {
-    test('uploads image and returns PostEntity with imageUrl', () async {
-      const downloadUrl = 'https://storage.example.com/posts/post-1.jpg';
-      final bytes = Uint8List.fromList([1, 2, 3]);
+    late MockReference mockRef;
+    late MockReference mockUploadRef;
 
-      final mockUploadRef = MockReference();
+    setUp(() {
+      mockRef = MockReference();
+      mockUploadRef = MockReference();
+      when(() => mockStorage.ref(any())).thenReturn(mockRef);
+      when(() => mockUploadRef.getDownloadURL())
+          .thenAnswer((_) async => 'https://storage.example.com/post.jpg');
+    });
+
+    /// Calls [createPost] with [imageExtension] and returns the captured
+    /// [SettableMetadata] passed to [Reference.putData].
+    Future<SettableMetadata?> runAndCaptureMetadata(String extension) async {
+      final bytes = Uint8List.fromList([1, 2, 3]);
       final fakeSnapshot = _FakeTaskSnapshot(mockUploadRef);
       final fakeTask = _FakeUploadTask(fakeSnapshot);
+      when(() => mockRef.putData(any(), any())).thenAnswer((_) => fakeTask);
 
-      final mockRef = MockReference();
-      when(() => mockStorage.ref(any())).thenReturn(mockRef);
-      when(() => mockRef.putData(any())).thenAnswer((_) => fakeTask);
-      when(() => mockUploadRef.getDownloadURL())
-          .thenAnswer((_) async => downloadUrl);
+      await sut.createPost(
+        authorUid: 'uid-alice',
+        authorDisplayName: 'Alice',
+        content: 'Image post',
+        imageBytes: bytes,
+        imageExtension: extension,
+      );
+
+      final captured =
+          verify(() => mockRef.putData(captureAny(), captureAny())).captured;
+      // captured = [bytes, SettableMetadata] for the single call.
+      return captured[1] as SettableMetadata?;
+    }
+
+    test('uploads image and returns PostEntity with imageUrl', () async {
+      final bytes = Uint8List.fromList([1, 2, 3]);
+      final fakeSnapshot = _FakeTaskSnapshot(mockUploadRef);
+      final fakeTask = _FakeUploadTask(fakeSnapshot);
+      when(() => mockRef.putData(any(), any())).thenAnswer((_) => fakeTask);
 
       final result = await sut.createPost(
         authorUid: 'uid-alice',
@@ -242,10 +268,38 @@ void main() {
         imageExtension: '.jpg',
       );
 
-      expect(result.imageUrl, downloadUrl);
+      expect(result.imageUrl, 'https://storage.example.com/post.jpg');
       verify(() => mockStorage.ref(any())).called(1);
-      verify(() => mockRef.putData(any())).called(1);
+      verify(() => mockRef.putData(any(), any())).called(1);
       verify(() => mockUploadRef.getDownloadURL()).called(1);
+    });
+
+    test(
+        'putData receives SettableMetadata(contentType: image/jpeg) for .jpg',
+        () async {
+      final metadata = await runAndCaptureMetadata('.jpg');
+      expect(metadata?.contentType, 'image/jpeg');
+    });
+
+    test(
+        'putData receives SettableMetadata(contentType: image/png) for .png',
+        () async {
+      final metadata = await runAndCaptureMetadata('.png');
+      expect(metadata?.contentType, 'image/png');
+    });
+
+    test(
+        'putData receives SettableMetadata(contentType: image/webp) for .webp',
+        () async {
+      final metadata = await runAndCaptureMetadata('.webp');
+      expect(metadata?.contentType, 'image/webp');
+    });
+
+    test(
+        'putData receives SettableMetadata(contentType: image/jpeg) for unknown extension',
+        () async {
+      final metadata = await runAndCaptureMetadata('.gif');
+      expect(metadata?.contentType, 'image/jpeg');
     });
   });
 

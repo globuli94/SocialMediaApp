@@ -45,8 +45,14 @@ class PostRepositoryImpl implements PostRepository {
     String? imageUrl;
     if (imageBytes != null) {
       final storagePath = 'posts/$postId${imageExtension ?? ''}';
-      final uploadTask =
-          await _storage.ref(storagePath).putData(imageBytes);
+      final contentType = switch ((imageExtension ?? '').toLowerCase()) {
+        '.png' => 'image/png',
+        '.webp' => 'image/webp',
+        _ => 'image/jpeg',
+      };
+      final uploadTask = await _storage
+          .ref(storagePath)
+          .putData(imageBytes, SettableMetadata(contentType: contentType));
       imageUrl = await uploadTask.ref.getDownloadURL();
     }
 
