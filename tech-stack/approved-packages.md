@@ -32,6 +32,7 @@ only after board approval of a package proposal.
 | BLoC testing | `bloc_test` | ^10.0.0 |
 | Linting | `flutter_lints` | latest |
 | Mocking | `mocktail` | latest |
+| Firestore testing | `fake_cloud_firestore` | ^3.0.0 |
 | App icon generation | `flutter_launcher_icons` | latest |
 
 ---
@@ -42,6 +43,7 @@ only after board approval of a package proposal.
 |---|---|---|
 | 2026-05-09 | Initial package set defined | Board |
 | 2026-05-10 | Add flutter_launcher_icons (dev) for APP-003 | Board |
+| 2026-05-12 | Add fake_cloud_firestore (dev) for SOCAA-75 data layer tests | CTO |
 
 ---
 

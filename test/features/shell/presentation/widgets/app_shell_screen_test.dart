@@ -6,6 +6,9 @@
 // Updated to provide AuthBloc and ProfileBloc after FEAT-002 replaced the
 // Profile tab placeholder with the real ProfileScreen.
 //
+// Updated to provide PostBloc after FEAT-003 replaced the Feed tab placeholder
+// with the real FeedScreen (which uses BlocBuilder<PostBloc, PostState>).
+//
 // Note: tests that navigate to the Profile tab use pump() instead of
 // pumpAndSettle() because ProfileScreen shows a CircularProgressIndicator
 // (in ProfileInitial state) whose animation never settles.
@@ -18,6 +21,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
@@ -29,6 +35,8 @@ import 'package:social_network/features/shell/presentation/screens/app_shell_scr
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
+class MockPostBloc extends MockBloc<PostEvent, PostState> implements PostBloc {}
+
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}
 
@@ -38,11 +46,13 @@ class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
 
 Widget _buildSubject({
   required MockAuthBloc authBloc,
+  required MockPostBloc postBloc,
   required MockProfileBloc profileBloc,
 }) {
   return MultiBlocProvider(
     providers: [
       BlocProvider<AuthBloc>.value(value: authBloc),
+      BlocProvider<PostBloc>.value(value: postBloc),
       BlocProvider<ProfileBloc>.value(value: profileBloc),
     ],
     child: const MaterialApp(
@@ -63,18 +73,22 @@ Finder _findIcon(IconData icon) => find.byWidgetPredicate(
 
 void main() {
   late MockAuthBloc authBloc;
+  late MockPostBloc postBloc;
   late MockProfileBloc profileBloc;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
+    registerFallbackValue(const PostWatchStarted());
   });
 
   setUp(() {
     authBloc = MockAuthBloc();
+    postBloc = MockPostBloc();
     profileBloc = MockProfileBloc();
 
-    // Default: not authenticated, profile in initial state.
+    // Default: not authenticated, profile in initial state, posts empty.
     when(() => authBloc.state).thenReturn(const AuthInitial());
+    when(() => postBloc.state).thenReturn(PostLoaded(posts: []));
     when(() => profileBloc.state).thenReturn(const ProfileInitial());
   });
 
@@ -82,27 +96,41 @@ void main() {
     testWidgets('renders a NavigationBar with Feed and Profile destinations',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.text('Feed'), findsOneWidget);
+      // 'Feed' appears as both AppBar title and NavigationBar label.
+      expect(find.text('Feed'), findsWidgets);
       expect(find.text('Profile'), findsOneWidget);
     });
 
-    testWidgets('shows Feed screen by default', (WidgetTester tester) async {
+    testWidgets('shows FeedScreen by default (no posts → "No posts yet.")',
+        (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
-      expect(find.text('Feed — coming soon'), findsOneWidget);
+      expect(find.text('No posts yet.'), findsOneWidget);
     });
 
     testWidgets(
         'Feed selected icon (Icons.home) is rendered when Feed tab is active',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       // NavigationBar renders only the selected icon for each active destination.
@@ -113,7 +141,11 @@ void main() {
         'Profile unselected icon (Icons.person_outline) is rendered when Feed tab is active',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       expect(_findIcon(Icons.person_outline), findsOneWidget);
@@ -123,7 +155,11 @@ void main() {
         'Profile selected icon (Icons.person) is rendered after tapping Profile',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       await tester.tap(find.text('Profile'));
@@ -138,7 +174,11 @@ void main() {
         'Feed unselected icon (Icons.home_outlined) is rendered after tapping Profile',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       await tester.tap(find.text('Profile'));
@@ -150,7 +190,11 @@ void main() {
     testWidgets('tapping Profile tab shows Profile screen',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       await tester.tap(find.text('Profile'));
@@ -164,7 +208,11 @@ void main() {
     testWidgets('tapping Feed tab after Profile returns to Feed screen',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       await tester.tap(find.text('Profile'));
@@ -175,14 +223,18 @@ void main() {
       // and its CircularProgressIndicator animation prevents pumpAndSettle from settling.
       await tester.pump();
 
-      expect(find.text('Feed — coming soon'), findsOneWidget);
+      expect(find.text('No posts yet.'), findsOneWidget);
     });
 
     testWidgets(
         'IndexedStack keeps both screens mounted — Feed is still in tree after switching to Profile',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       // Navigate to Profile so Feed is offstage.
@@ -192,7 +244,7 @@ void main() {
       // IndexedStack keeps non-visible children as Offstage (not destroyed).
       // Use skipOffstage: false to verify Feed is still in the tree.
       expect(
-        find.text('Feed — coming soon', skipOffstage: false),
+        find.text('No posts yet.', skipOffstage: false),
         findsOneWidget,
       );
       // Profile tab is active — CircularProgressIndicator from ProfileScreen.
@@ -202,7 +254,11 @@ void main() {
     testWidgets('NavigationBar selectedIndex starts at 0 (Feed)',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       final NavigationBar navBar =
@@ -214,7 +270,11 @@ void main() {
         'NavigationBar selectedIndex updates to 1 after tapping Profile',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+        ),
       );
 
       await tester.tap(find.text('Profile'));
