@@ -3,9 +3,11 @@
 // Unit tests for PostRemoteDataSource.
 // All Firebase SDK types are hidden behind abstract interfaces and replaced
 // with mocktail doubles.
+// ignore_for_file: subtype_of_sealed_class
 
 import 'dart:typed_data';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:social_network/features/posts/data/datasources/post_firestore_service.dart';
@@ -13,12 +15,38 @@ import 'package:social_network/features/posts/data/datasources/post_remote_data_
 import 'package:social_network/features/posts/data/datasources/post_storage_service.dart';
 
 // ---------------------------------------------------------------------------
-// Mocks
+// Mocks & fakes
 // ---------------------------------------------------------------------------
 
 class MockPostFirestoreService extends Mock implements PostFirestoreService {}
 
 class MockPostStorageService extends Mock implements PostStorageService {}
+
+/// Minimal fake [QueryDocumentSnapshot] that also satisfies the
+/// [DocumentSnapshot] contract (required when used as `startAfter` cursor).
+class _FakeQueryDocumentSnapshot extends Fake
+    implements QueryDocumentSnapshot<Map<String, dynamic>> {
+  _FakeQueryDocumentSnapshot({required this.id, required Map<String, dynamic> data})
+      : _data = data;
+
+  @override
+  final String id;
+
+  final Map<String, dynamic> _data;
+
+  @override
+  Map<String, dynamic> data() => _data;
+}
+
+class _FakeQuerySnapshot extends Fake
+    implements QuerySnapshot<Map<String, dynamic>> {
+  _FakeQuerySnapshot(this._docs);
+
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> _docs;
+
+  @override
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> get docs => _docs;
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -401,6 +429,147 @@ void main() {
       verify(
         () => firestoreService.adjustPostCount(authorUid, -1),
       ).called(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // fetchFeedPage  (covers post_remote_data_source.dart lines 97-121)
+  // -------------------------------------------------------------------------
+
+  group('fetchFeedPage', () {
+    _FakeQueryDocumentSnapshot makeDoc(
+      String id,
+      Map<String, dynamic> data,
+    ) =>
+        _FakeQueryDocumentSnapshot(id: id, data: data);
+
+    test('returns empty list and null cursor when snapshot is empty', () async {
+      when(
+        () => firestoreService.fetchPostsPage(startAfter: null, limit: 10),
+      ).thenAnswer((_) async => _FakeQuerySnapshot([]));
+
+      final (posts, cursor) = await dataSource.fetchFeedPage();
+
+      expect(posts, isEmpty);
+      expect(cursor, isNull);
+    });
+
+    test('maps QueryDocumentSnapshot to PostEntity with all fields', () async {
+      final ts = Timestamp.fromDate(DateTime(2026, 3, 15));
+      final doc = makeDoc('post-1', {
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'Hello',
+        'createdAt': ts,
+        'authorAvatarUrl': 'https://example.com/avatar.jpg',
+        'imageUrl': 'https://example.com/img.jpg',
+      });
+
+      when(
+        () => firestoreService.fetchPostsPage(startAfter: null, limit: 10),
+      ).thenAnswer((_) async => _FakeQuerySnapshot([doc]));
+
+      final (posts, _) = await dataSource.fetchFeedPage();
+
+      expect(posts, hasLength(1));
+      expect(posts.first.id, 'post-1');
+      expect(posts.first.authorUid, 'uid-alice');
+      expect(posts.first.authorDisplayName, 'Alice');
+      expect(posts.first.content, 'Hello');
+      expect(posts.first.createdAt, DateTime(2026, 3, 15));
+      expect(posts.first.authorAvatarUrl, 'https://example.com/avatar.jpg');
+      expect(posts.first.imageUrl, 'https://example.com/img.jpg');
+    });
+
+    test('returns non-null cursor when docs.length == limit', () async {
+      final docs = List.generate(
+        10,
+        (i) => makeDoc('p$i', {
+          'authorUid': 'uid',
+          'authorDisplayName': 'User',
+          'content': 'Post $i',
+          'createdAt': Timestamp.fromDate(DateTime(2026, 1, i + 1)),
+        }),
+      );
+
+      when(
+        () => firestoreService.fetchPostsPage(startAfter: null, limit: 10),
+      ).thenAnswer((_) async => _FakeQuerySnapshot(docs));
+
+      final (posts, cursor) = await dataSource.fetchFeedPage(limit: 10);
+
+      expect(posts, hasLength(10));
+      expect(cursor, isNotNull);
+    });
+
+    test('returns null cursor when docs.length < limit', () async {
+      final docs = [
+        makeDoc('p1', {
+          'authorUid': 'uid',
+          'authorDisplayName': 'User',
+          'content': 'Post',
+          'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+        }),
+      ];
+
+      when(
+        () => firestoreService.fetchPostsPage(startAfter: null, limit: 10),
+      ).thenAnswer((_) async => _FakeQuerySnapshot(docs));
+
+      final (_, cursor) = await dataSource.fetchFeedPage(limit: 10);
+
+      expect(cursor, isNull);
+    });
+
+    test('uses DateTime.now() when createdAt is null', () async {
+      final doc = makeDoc('p-no-ts', {
+        'authorUid': 'uid',
+        'authorDisplayName': 'User',
+        'content': 'No timestamp',
+      });
+
+      when(
+        () => firestoreService.fetchPostsPage(startAfter: null, limit: 10),
+      ).thenAnswer((_) async => _FakeQuerySnapshot([doc]));
+
+      final (posts, _) = await dataSource.fetchFeedPage();
+
+      expect(posts.first.createdAt, isA<DateTime>());
+    });
+
+    test('passes cursor to fetchPostsPage as startAfter', () async {
+      final cursorDoc = makeDoc('cursor-doc', {});
+
+      when(
+        () => firestoreService.fetchPostsPage(
+            startAfter: cursorDoc, limit: 10),
+      ).thenAnswer((_) async => _FakeQuerySnapshot([]));
+
+      await dataSource.fetchFeedPage(cursor: cursorDoc, limit: 10);
+
+      verify(
+        () => firestoreService.fetchPostsPage(
+            startAfter: cursorDoc, limit: 10),
+      ).called(1);
+    });
+
+    test('handles missing optional fields — uses empty string defaults',
+        () async {
+      final doc = makeDoc('p-minimal', <String, dynamic>{
+        'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+      });
+
+      when(
+        () => firestoreService.fetchPostsPage(startAfter: null, limit: 10),
+      ).thenAnswer((_) async => _FakeQuerySnapshot([doc]));
+
+      final (posts, _) = await dataSource.fetchFeedPage();
+
+      expect(posts.first.authorUid, '');
+      expect(posts.first.authorDisplayName, '');
+      expect(posts.first.content, '');
+      expect(posts.first.authorAvatarUrl, isNull);
+      expect(posts.first.imageUrl, isNull);
     });
   });
 }

@@ -382,4 +382,77 @@ void main() {
       expect(snap.exists, isFalse);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // fetchFeedPage  (covers post_repository_impl.dart lines 100-116)
+  // -------------------------------------------------------------------------
+
+  group('fetchFeedPage', () {
+    test('returns empty list and null cursor when no posts', () async {
+      final (posts, cursor) = await sut.fetchFeedPage();
+
+      expect(posts, isEmpty);
+      expect(cursor, isNull);
+    });
+
+    test('returns PostEntity list and null cursor when docs < limit', () async {
+      final ts = Timestamp.fromDate(DateTime(2026, 3, 1));
+      await fakeFirestore.collection('posts').doc('p1').set({
+        'id': 'p1',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'Post 1',
+        'createdAt': ts,
+        'likeCount': 0,
+      });
+
+      final (posts, cursor) = await sut.fetchFeedPage(limit: 10);
+
+      expect(posts, hasLength(1));
+      expect(posts.first.id, 'p1');
+      expect(posts.first.authorUid, 'uid-alice');
+      expect(cursor, isNull);
+    });
+
+    test('returns non-null cursor when docs.length == limit', () async {
+      for (var i = 0; i < 3; i++) {
+        await fakeFirestore.collection('posts').doc('p$i').set({
+          'id': 'p$i',
+          'authorUid': 'uid-a',
+          'authorDisplayName': 'A',
+          'content': 'Post $i',
+          'createdAt': Timestamp.fromDate(DateTime(2026, 1, i + 1)),
+          'likeCount': 0,
+        });
+      }
+
+      final (posts, cursor) = await sut.fetchFeedPage(limit: 3);
+
+      expect(posts, hasLength(3));
+      expect(cursor, isNotNull);
+    });
+
+    test('accepts cursor and returns empty page when paging past last document',
+        () async {
+      await fakeFirestore.collection('posts').doc('only').set({
+        'id': 'only',
+        'authorUid': 'uid-a',
+        'authorDisplayName': 'A',
+        'content': 'Only post',
+        'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+        'likeCount': 0,
+      });
+
+      // First page: returns the single doc; cursor is non-null (limit == docs).
+      final (page1Posts, cursor) = await sut.fetchFeedPage(limit: 1);
+      expect(page1Posts, hasLength(1));
+      expect(cursor, isNotNull);
+
+      // Second page using that cursor — should return nothing.
+      final (page2Posts, cursor2) =
+          await sut.fetchFeedPage(cursor: cursor, limit: 1);
+      expect(page2Posts, isEmpty);
+      expect(cursor2, isNull);
+    });
+  });
 }

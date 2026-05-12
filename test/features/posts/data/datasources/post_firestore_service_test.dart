@@ -180,4 +180,76 @@ void main() {
       expect(doc.data()!['postCount'], 4);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // fetchPostsPage  (covers post_firestore_service.dart lines 85, 90-97)
+  // -------------------------------------------------------------------------
+
+  group('fetchPostsPage', () {
+    test('returns empty snapshot when no posts exist', () async {
+      final snapshot = await sut.fetchPostsPage();
+      expect(snapshot.docs, isEmpty);
+    });
+
+    test('returns documents ordered by createdAt descending', () async {
+      final older = Timestamp.fromDate(DateTime(2026, 1, 1));
+      final newer = Timestamp.fromDate(DateTime(2026, 6, 1));
+
+      await fakeFirestore.collection('posts').doc('old').set({
+        'authorUid': 'uid-a',
+        'authorDisplayName': 'A',
+        'content': 'Old',
+        'createdAt': older,
+        'likeCount': 0,
+      });
+      await fakeFirestore.collection('posts').doc('new').set({
+        'authorUid': 'uid-b',
+        'authorDisplayName': 'B',
+        'content': 'New',
+        'createdAt': newer,
+        'likeCount': 0,
+      });
+
+      final snapshot = await sut.fetchPostsPage();
+
+      expect(snapshot.docs, hasLength(2));
+      expect(snapshot.docs.first.id, 'new');
+      expect(snapshot.docs.last.id, 'old');
+    });
+
+    test('respects limit parameter', () async {
+      for (var i = 0; i < 5; i++) {
+        await fakeFirestore.collection('posts').doc('p$i').set({
+          'authorUid': 'uid-a',
+          'authorDisplayName': 'A',
+          'content': 'Post $i',
+          'createdAt': Timestamp.fromDate(DateTime(2026, 1, i + 1)),
+          'likeCount': 0,
+        });
+      }
+
+      final snapshot = await sut.fetchPostsPage(limit: 3);
+      expect(snapshot.docs, hasLength(3));
+    });
+
+    test('accepts startAfter and returns empty page past the last document',
+        () async {
+      await fakeFirestore.collection('posts').doc('only').set({
+        'authorUid': 'uid-a',
+        'authorDisplayName': 'A',
+        'content': 'Only post',
+        'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+        'likeCount': 0,
+      });
+
+      // First page returns the single document.
+      final first = await sut.fetchPostsPage(limit: 1);
+      expect(first.docs, hasLength(1));
+
+      // Paging past it with startAfter should return nothing.
+      final second =
+          await sut.fetchPostsPage(startAfter: first.docs.first, limit: 1);
+      expect(second.docs, isEmpty);
+    });
+  });
 }

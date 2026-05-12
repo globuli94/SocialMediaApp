@@ -275,6 +275,14 @@ void main() {
       );
 
       blocTest<FeedBloc, FeedState>(
+        'is a no-op when state is FeedLoading — emits nothing',
+        build: () => FeedBloc(postRepository: mockRepository),
+        seed: () => const FeedLoading(),
+        act: (bloc) => bloc.add(const FeedLoadMoreRequested()),
+        expect: () => [],
+      );
+
+      blocTest<FeedBloc, FeedState>(
         'emits [FeedLoaded(isLoadingMore: true), FeedFailure] when repository '
         'throws on load more',
         setUp: () {
@@ -302,6 +310,88 @@ void main() {
           isA<FeedFailure>(),
         ],
       );
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // FeedEvent equality / props  (covers feed_event.dart lines 11-12, 17-18, 23-24)
+  // -----------------------------------------------------------------------
+
+  group('FeedEvent equality and props', () {
+    test('FeedStarted props is empty', () {
+      expect(FeedStarted().props, isEmpty);
+    });
+
+    test('FeedStarted instances are equal', () {
+      expect(FeedStarted() == FeedStarted(), isTrue);
+    });
+
+    test('FeedRefreshRequested props is empty', () {
+      expect(FeedRefreshRequested().props, isEmpty);
+    });
+
+    test('FeedRefreshRequested instances are equal', () {
+      expect(FeedRefreshRequested() == FeedRefreshRequested(), isTrue);
+    });
+
+    test('FeedLoadMoreRequested props is empty', () {
+      expect(FeedLoadMoreRequested().props, isEmpty);
+    });
+
+    test('FeedLoadMoreRequested instances are equal', () {
+      expect(FeedLoadMoreRequested() == FeedLoadMoreRequested(), isTrue);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // FeedState equality / props  (covers feed_state.dart lines 12-13, 45)
+  // -----------------------------------------------------------------------
+
+  group('FeedInitial equality and props', () {
+    test('FeedInitial props is empty', () {
+      expect(FeedInitial().props, isEmpty);
+    });
+
+    test('FeedInitial instances are equal', () {
+      expect(FeedInitial() == FeedInitial(), isTrue);
+    });
+  });
+
+  group('FeedLoaded.copyWith', () {
+    test('preserves isLoadingMore when not provided (covers ?? fallback)', () {
+      final state = FeedLoaded(
+        posts: [_post1],
+        hasMore: true,
+        isLoadingMore: true,
+        cursor: 'c',
+      );
+      // Do NOT pass isLoadingMore — forces the ?? this.isLoadingMore branch.
+      final copy = state.copyWith(hasMore: false);
+      expect(copy.isLoadingMore, isTrue);
+    });
+
+    test('sets cursor to null when clearCursor=true', () {
+      final state = FeedLoaded(
+        posts: [],
+        hasMore: true,
+        cursor: 'cursor-x',
+      );
+      final copy = state.copyWith(clearCursor: true);
+      expect(copy.cursor, isNull);
+    });
+
+    test('overrides individual fields while keeping others', () {
+      final state = FeedLoaded(
+        posts: [_post1],
+        hasMore: true,
+        isLoadingMore: false,
+        cursor: 'c1',
+      );
+      final copy = state.copyWith(posts: [_post2], cursor: 'c2');
+      expect(copy.posts, [_post2]);
+      expect(copy.cursor, 'c2');
+      expect(copy.hasMore, isTrue);
+      expect(copy.isLoadingMore, isFalse);
     });
   });
 }
