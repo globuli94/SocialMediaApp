@@ -9,6 +9,9 @@
 // Updated to provide PostBloc after FEAT-003 replaced the Feed tab placeholder
 // with the real FeedScreen (which uses BlocBuilder<PostBloc, PostState>).
 //
+// Updated to provide PostRepository after FEAT-004 changed FeedScreen to
+// create its own FeedBloc internally via context.read<PostRepository>().
+//
 // Tests that navigate to /home use pump() instead of pumpAndSettle() because
 // ProfileScreen shows a CircularProgressIndicator whose animation never settles.
 
@@ -26,6 +29,8 @@ import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
+import 'package:social_network/features/posts/domain/entities/post_entity.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
@@ -44,6 +49,8 @@ class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 class MockPostBloc extends MockBloc<PostEvent, PostState> implements PostBloc {}
 
+class MockPostRepository extends Mock implements PostRepository {}
+
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}
 
@@ -61,16 +68,20 @@ Widget _buildApp(
   MockAuthRepository mockRepo,
   MockAuthBloc authBloc,
   MockPostBloc postBloc,
+  MockPostRepository postRepository,
   MockProfileBloc profileBloc,
 ) {
   final router = createRouter(authRepository: mockRepo);
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider<AuthBloc>.value(value: authBloc),
-      BlocProvider<PostBloc>.value(value: postBloc),
-      BlocProvider<ProfileBloc>.value(value: profileBloc),
-    ],
-    child: MaterialApp.router(routerConfig: router),
+  return RepositoryProvider<PostRepository>.value(
+    value: postRepository,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: authBloc),
+        BlocProvider<PostBloc>.value(value: postBloc),
+        BlocProvider<ProfileBloc>.value(value: profileBloc),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
   );
 }
 
@@ -82,6 +93,7 @@ void main() {
   late MockAuthRepository mockRepo;
   late MockAuthBloc mockBloc;
   late MockPostBloc postBloc;
+  late MockPostRepository postRepository;
   late MockProfileBloc profileBloc;
 
   setUpAll(() {
@@ -93,6 +105,7 @@ void main() {
     mockRepo = MockAuthRepository();
     mockBloc = MockAuthBloc();
     postBloc = MockPostBloc();
+    postRepository = MockPostRepository();
     profileBloc = MockProfileBloc();
     when(() => mockBloc.state).thenReturn(const AuthInitial());
     when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
@@ -100,6 +113,11 @@ void main() {
     when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => profileBloc.state).thenReturn(const ProfileInitial());
     when(() => profileBloc.stream).thenAnswer((_) => const Stream.empty());
+
+    // FeedScreen creates a FeedBloc internally via context.read<PostRepository>().
+    when(
+      () => postRepository.fetchFeedPage(cursor: null, limit: 10),
+    ).thenAnswer((_) async => (<PostEntity>[], null));
   });
 
   group('GoRouterRefreshStream', () {
@@ -148,7 +166,8 @@ void main() {
       when(() => mockRepo.authStateChanges)
           .thenAnswer((_) => const Stream.empty());
 
-      await tester.pumpWidget(_buildApp(mockRepo, mockBloc, postBloc, profileBloc));
+      await tester.pumpWidget(
+          _buildApp(mockRepo, mockBloc, postBloc, postRepository, profileBloc));
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
 
       expect(find.byType(LoginScreen), findsOneWidget);
@@ -163,13 +182,16 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<AuthBloc>.value(value: mockBloc),
-            BlocProvider<PostBloc>.value(value: postBloc),
-            BlocProvider<ProfileBloc>.value(value: profileBloc),
-          ],
-          child: MaterialApp.router(routerConfig: router),
+        RepositoryProvider<PostRepository>.value(
+          value: postRepository,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: mockBloc),
+              BlocProvider<PostBloc>.value(value: postBloc),
+              BlocProvider<ProfileBloc>.value(value: profileBloc),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -190,13 +212,16 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<AuthBloc>.value(value: mockBloc),
-            BlocProvider<PostBloc>.value(value: postBloc),
-            BlocProvider<ProfileBloc>.value(value: profileBloc),
-          ],
-          child: MaterialApp.router(routerConfig: router),
+        RepositoryProvider<PostRepository>.value(
+          value: postRepository,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: mockBloc),
+              BlocProvider<PostBloc>.value(value: postBloc),
+              BlocProvider<ProfileBloc>.value(value: profileBloc),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
         ),
       );
       // pump() is sufficient to process the redirect — pumpAndSettle() would
@@ -218,13 +243,16 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<AuthBloc>.value(value: mockBloc),
-            BlocProvider<PostBloc>.value(value: postBloc),
-            BlocProvider<ProfileBloc>.value(value: profileBloc),
-          ],
-          child: MaterialApp.router(routerConfig: router),
+        RepositoryProvider<PostRepository>.value(
+          value: postRepository,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: mockBloc),
+              BlocProvider<PostBloc>.value(value: postBloc),
+              BlocProvider<ProfileBloc>.value(value: profileBloc),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
         ),
       );
       // pump() instead of pumpAndSettle(): the open StreamController keeps

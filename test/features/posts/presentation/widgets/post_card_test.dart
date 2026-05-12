@@ -307,4 +307,82 @@ void main() {
       expect(find.byType(Card), findsOneWidget);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // onAuthorTap
+  // -------------------------------------------------------------------------
+
+  group('onAuthorTap', () {
+    testWidgets('renders a GestureDetector wrapping author avatar and name',
+        (tester) async {
+      await tester.pumpWidget(
+        BlocProvider<PostBloc>.value(
+          value: postBloc,
+          child: MaterialApp(
+            home: Scaffold(
+              body: PostCard(
+                post: _ownPost,
+                currentUserUid: 'uid-me',
+                onAuthorTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(GestureDetector), findsWidgets);
+    });
+
+    testWidgets('tapping author area fires onAuthorTap callback',
+        (tester) async {
+      var tapped = false;
+
+      await tester.pumpWidget(
+        BlocProvider<PostBloc>.value(
+          value: postBloc,
+          child: MaterialApp(
+            home: Scaffold(
+              body: PostCard(
+                post: _ownPost,
+                currentUserUid: 'uid-me',
+                onAuthorTap: () => tapped = true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(GestureDetector).first);
+      await tester.pump();
+
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('null onAuthorTap does not throw when card is tapped',
+        (tester) async {
+      await tester.pumpWidget(
+        BlocProvider<PostBloc>.value(
+          value: postBloc,
+          child: MaterialApp(
+            home: Scaffold(
+              body: PostCard(
+                post: _ownPost,
+                currentUserUid: 'uid-me',
+                // onAuthorTap intentionally omitted (null)
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Tapping the GestureDetector with a null handler must not throw.
+      await expectLater(
+        () async {
+          await tester.tap(find.byType(GestureDetector).first);
+          await tester.pump();
+        },
+        returnsNormally,
+      );
+    });
+  });
 }

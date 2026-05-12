@@ -9,6 +9,9 @@
 // Updated to provide PostBloc after FEAT-003 replaced the Feed tab placeholder
 // with the real FeedScreen (which uses BlocBuilder<PostBloc, PostState>).
 //
+// Updated to provide PostRepository after FEAT-004 changed FeedScreen to
+// create its own FeedBloc internally via context.read<PostRepository>().
+//
 // Note: tests that navigate to the Profile tab use pump() instead of
 // pumpAndSettle() because ProfileScreen shows a CircularProgressIndicator
 // (in ProfileInitial state) whose animation never settles.
@@ -21,6 +24,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/posts/domain/entities/post_entity.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
@@ -37,6 +42,8 @@ class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 class MockPostBloc extends MockBloc<PostEvent, PostState> implements PostBloc {}
 
+class MockPostRepository extends Mock implements PostRepository {}
+
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}
 
@@ -47,16 +54,20 @@ class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
 Widget _buildSubject({
   required MockAuthBloc authBloc,
   required MockPostBloc postBloc,
+  required MockPostRepository postRepository,
   required MockProfileBloc profileBloc,
 }) {
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider<AuthBloc>.value(value: authBloc),
-      BlocProvider<PostBloc>.value(value: postBloc),
-      BlocProvider<ProfileBloc>.value(value: profileBloc),
-    ],
-    child: const MaterialApp(
-      home: AppShellScreen(),
+  return RepositoryProvider<PostRepository>.value(
+    value: postRepository,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: authBloc),
+        BlocProvider<PostBloc>.value(value: postBloc),
+        BlocProvider<ProfileBloc>.value(value: profileBloc),
+      ],
+      child: const MaterialApp(
+        home: AppShellScreen(),
+      ),
     ),
   );
 }
@@ -74,6 +85,7 @@ Finder _findIcon(IconData icon) => find.byWidgetPredicate(
 void main() {
   late MockAuthBloc authBloc;
   late MockPostBloc postBloc;
+  late MockPostRepository postRepository;
   late MockProfileBloc profileBloc;
 
   setUpAll(() {
@@ -84,12 +96,19 @@ void main() {
   setUp(() {
     authBloc = MockAuthBloc();
     postBloc = MockPostBloc();
+    postRepository = MockPostRepository();
     profileBloc = MockProfileBloc();
 
     // Default: not authenticated, profile in initial state, posts empty.
     when(() => authBloc.state).thenReturn(const AuthInitial());
     when(() => postBloc.state).thenReturn(PostLoaded(posts: []));
     when(() => profileBloc.state).thenReturn(const ProfileInitial());
+
+    // FeedScreen creates a FeedBloc internally via context.read<PostRepository>().
+    // Return an empty page so FeedScreen shows "No posts yet." after loading.
+    when(
+      () => postRepository.fetchFeedPage(cursor: null, limit: 10),
+    ).thenAnswer((_) async => (<PostEntity>[], null));
   });
 
   group('AppShellScreen', () {
@@ -99,6 +118,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
@@ -115,9 +135,18 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
+
+      // FeedScreen creates a FeedBloc internally; two pumps let the async
+      // fetchFeedPage call complete so FeedLoaded(posts: []) is emitted and
+      // BlocBuilder rebuilds to show "No posts yet.".
+      // We use pump() rather than pumpAndSettle() because the FeedScreen's
+      // FloatingActionButton entrance animation may take multiple frames.
+      await tester.pump();
+      await tester.pump();
 
       expect(find.text('No posts yet.'), findsOneWidget);
     });
@@ -129,6 +158,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
@@ -144,6 +174,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
@@ -158,6 +189,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
@@ -177,6 +209,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
@@ -193,6 +226,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
@@ -211,16 +245,19 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
+
+      // Two pumps let FeedBloc complete its initial load to FeedLoaded.
+      await tester.pump();
+      await tester.pump();
 
       await tester.tap(find.text('Profile'));
       await tester.pump();
 
       await tester.tap(find.text('Feed'));
-      // Use pump() — the ProfileScreen is still offstage in the IndexedStack
-      // and its CircularProgressIndicator animation prevents pumpAndSettle from settling.
       await tester.pump();
 
       expect(find.text('No posts yet.'), findsOneWidget);
@@ -233,9 +270,14 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
+
+      // Two pumps let Feed load fully to FeedLoaded before navigating away.
+      await tester.pump();
+      await tester.pump();
 
       // Navigate to Profile so Feed is offstage.
       await tester.tap(find.text('Profile'));
@@ -257,6 +299,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
@@ -273,6 +316,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
+          postRepository: postRepository,
           profileBloc: profileBloc,
         ),
       );
