@@ -29,6 +29,13 @@ abstract class PostFirestoreService {
   /// Adjusts `postCount` on `users/{uid}` by [delta] (positive = increment,
   /// negative = decrement). Uses an atomic Firestore increment.
   Future<void> adjustPostCount(String uid, int delta);
+
+  /// Fetches a page of posts ordered by `createdAt` descending.
+  /// Pass [startAfter] (a [DocumentSnapshot]) to page forward.
+  Future<QuerySnapshot<Map<String, dynamic>>> fetchPostsPage({
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+    int limit = 10,
+  });
 }
 
 /// Production implementation backed by [FirebaseFirestore].
@@ -73,5 +80,20 @@ class FirebasePostFirestoreService implements PostFirestoreService {
     await _firestore.collection('users').doc(uid).update({
       'postCount': FieldValue.increment(delta),
     });
+  }
+
+  @override
+  Future<QuerySnapshot<Map<String, dynamic>>> fetchPostsPage({
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+    int limit = 10,
+  }) async {
+    Query<Map<String, dynamic>> query = _firestore
+        .collection('posts')
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+    return query.get();
   }
 }

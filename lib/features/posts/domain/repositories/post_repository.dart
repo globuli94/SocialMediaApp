@@ -28,4 +28,12 @@ abstract class PostRepository {
 
   /// Deletes the post with [postId] and its Storage image (if any).
   Future<void> deletePost(String postId);
+
+  /// Fetches a page of posts for the feed.
+  /// Pass [cursor] (a [DocumentSnapshot]) for pagination.
+  /// Returns `(posts, nextCursor)` — `nextCursor` is null when no more pages.
+  Future<(List<PostEntity>, Object?)> fetchFeedPage({
+    Object? cursor,
+    int limit = 10,
+  });
 }

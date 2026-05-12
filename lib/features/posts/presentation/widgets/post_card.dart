@@ -19,10 +19,12 @@ class PostCard extends StatelessWidget {
     super.key,
     required this.post,
     required this.currentUserUid,
+    this.onAuthorTap,
   });
 
   final PostEntity post;
   final String currentUserUid;
+  final VoidCallback? onAuthorTap;
 
   String _relativeTime(DateTime createdAt) {
     final diff = DateTime.now().difference(createdAt);
@@ -42,27 +44,34 @@ class PostCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                AvatarWidget(
-                  displayName: post.authorDisplayName,
-                  avatarUrl: post.authorAvatarUrl,
-                  radius: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                GestureDetector(
+                  onTap: onAuthorTap,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        post.authorDisplayName,
-                        style: Theme.of(context).textTheme.titleSmall,
+                      AvatarWidget(
+                        displayName: post.authorDisplayName,
+                        avatarUrl: post.authorAvatarUrl,
+                        radius: 20,
                       ),
-                      Text(
-                        _relativeTime(post.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall,
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.authorDisplayName,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text(
+                            _relativeTime(post.createdAt),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
+                const Spacer(),
                 if (post.authorUid == currentUserUid)
                   IconButton(
                     icon: const Icon(Icons.delete_outline),

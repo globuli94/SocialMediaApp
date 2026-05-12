@@ -97,6 +97,26 @@ class PostRepositoryImpl implements PostRepository {
     await docRef.delete();
   }
 
+  @override
+  Future<(List<PostEntity>, Object?)> fetchFeedPage({
+    Object? cursor,
+    int limit = 10,
+  }) async {
+    Query<Map<String, dynamic>> query = _firestore
+        .collection('posts')
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+    if (cursor != null) {
+      query = query.startAfterDocument(
+          cursor as DocumentSnapshot<Map<String, dynamic>>);
+    }
+    final snapshot = await query.get();
+    final posts = snapshot.docs.map(_docToEntity).toList();
+    final nextCursor =
+        snapshot.docs.length < limit ? null : snapshot.docs.last;
+    return (posts, nextCursor as Object?);
+  }
+
   PostEntity _docToEntity(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate() ??

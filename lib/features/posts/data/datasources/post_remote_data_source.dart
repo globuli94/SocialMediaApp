@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:social_network/features/posts/data/datasources/post_firestore_service.dart';
 import 'package:social_network/features/posts/data/datasources/post_storage_service.dart';
+import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 
 /// Data source for all post-related Firebase operations.
 ///
@@ -87,5 +88,37 @@ class PostRemoteDataSource {
       await _storageService.delete('posts/$postId');
     }
     await _firestoreService.adjustPostCount(authorUid, -1);
+  }
+
+  /// Fetches a page of posts ordered by `createdAt` descending.
+  ///
+  /// Pass [cursor] (a [DocumentSnapshot]) to page forward.
+  /// Returns `(posts, nextCursor)` — `nextCursor` is `null` when no more pages.
+  Future<(List<PostEntity>, Object?)> fetchFeedPage({
+    Object? cursor,
+    int limit = 10,
+  }) async {
+    final snapshot = await _firestoreService.fetchPostsPage(
+      startAfter: cursor as DocumentSnapshot<Map<String, dynamic>>?,
+      limit: limit,
+    );
+    final posts = snapshot.docs.map((doc) {
+      final data = doc.data();
+      final createdAt =
+          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+      return PostEntity(
+        id: doc.id,
+        authorUid: data['authorUid'] as String? ?? '',
+        authorDisplayName: data['authorDisplayName'] as String? ?? '',
+        content: data['content'] as String? ?? '',
+        createdAt: createdAt,
+        authorAvatarUrl: data['authorAvatarUrl'] as String?,
+        imageUrl: data['imageUrl'] as String?,
+      );
+    }).toList();
+
+    final nextCursor =
+        snapshot.docs.length < limit ? null : snapshot.docs.last;
+    return (posts, nextCursor as Object?);
   }
 }
