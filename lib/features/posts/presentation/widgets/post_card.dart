@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
@@ -42,27 +43,33 @@ class PostCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                AvatarWidget(
-                  displayName: post.authorDisplayName,
-                  avatarUrl: post.authorAvatarUrl,
-                  radius: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                GestureDetector(
+                  onTap: () => context.push('/profile/${post.authorUid}'),
+                  child: Row(
                     children: [
-                      Text(
-                        post.authorDisplayName,
-                        style: Theme.of(context).textTheme.titleSmall,
+                      AvatarWidget(
+                        displayName: post.authorDisplayName,
+                        avatarUrl: post.authorAvatarUrl,
+                        radius: 20,
                       ),
-                      Text(
-                        _relativeTime(post.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall,
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.authorDisplayName,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text(
+                            _relativeTime(post.createdAt),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
+                const Spacer(),
                 if (post.authorUid == currentUserUid)
                   IconButton(
                     icon: const Icon(Icons.delete_outline),
