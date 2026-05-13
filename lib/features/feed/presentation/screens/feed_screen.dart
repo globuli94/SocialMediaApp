@@ -54,18 +54,46 @@ class _FeedScreenState extends State<FeedScreen> {
           }
           if (state is PostLoaded) {
             if (state.posts.isEmpty) {
-              return const Center(child: Text('No posts yet.'));
+              return RefreshIndicator(
+                onRefresh: () async {
+                  context.read<PostBloc>().add(const PostWatchStarted());
+                  await context.read<PostBloc>().stream.firstWhere(
+                        (s) => s is! PostLoading,
+                      );
+                },
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text('No posts yet.'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
             }
-            return ListView.builder(
-              itemCount: state.posts.length,
-              itemBuilder: (context, index) => PostCard(
-                post: state.posts[index],
-                currentUserUid:
-                    context.read<AuthBloc>().state is AuthAuthenticated
-                        ? (context.read<AuthBloc>().state as AuthAuthenticated)
-                            .user
-                            .uid
-                        : '',
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<PostBloc>().add(const PostWatchStarted());
+                await context.read<PostBloc>().stream.firstWhere(
+                      (s) => s is! PostLoading,
+                    );
+              },
+              child: ListView.builder(
+                itemCount: state.posts.length,
+                itemBuilder: (context, index) => PostCard(
+                  post: state.posts[index],
+                  currentUserUid:
+                      context.read<AuthBloc>().state is AuthAuthenticated
+                          ? (context.read<AuthBloc>().state as AuthAuthenticated)
+                              .user
+                              .uid
+                          : '',
+                  onAuthorTap: () =>
+                      context.push('/profile/${state.posts[index].authorUid}'),
+                ),
               ),
             );
           }

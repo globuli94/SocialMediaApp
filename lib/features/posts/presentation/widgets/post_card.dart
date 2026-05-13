@@ -14,15 +14,22 @@ import 'package:social_network/features/profile/presentation/widgets/avatar_widg
 /// Shows the author avatar, display name, relative timestamp, post text,
 /// optional image, and a delete button when the post belongs to the current
 /// user.
+///
+/// Provide [onAuthorTap] to handle taps on the author row (avatar + name).
+/// When omitted the tap is a no-op.
 class PostCard extends StatelessWidget {
   const PostCard({
     super.key,
     required this.post,
     required this.currentUserUid,
+    this.onAuthorTap,
   });
 
   final PostEntity post;
   final String currentUserUid;
+
+  /// Called when the user taps the author avatar or display name.
+  final VoidCallback? onAuthorTap;
 
   String _relativeTime(DateTime createdAt) {
     final diff = DateTime.now().difference(createdAt);
@@ -42,27 +49,33 @@ class PostCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                AvatarWidget(
-                  displayName: post.authorDisplayName,
-                  avatarUrl: post.authorAvatarUrl,
-                  radius: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                GestureDetector(
+                  onTap: onAuthorTap,
+                  child: Row(
                     children: [
-                      Text(
-                        post.authorDisplayName,
-                        style: Theme.of(context).textTheme.titleSmall,
+                      AvatarWidget(
+                        displayName: post.authorDisplayName,
+                        avatarUrl: post.authorAvatarUrl,
+                        radius: 20,
                       ),
-                      Text(
-                        _relativeTime(post.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall,
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.authorDisplayName,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text(
+                            _relativeTime(post.createdAt),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
+                const Spacer(),
                 if (post.authorUid == currentUserUid)
                   IconButton(
                     icon: const Icon(Icons.delete_outline),

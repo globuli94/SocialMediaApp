@@ -96,7 +96,7 @@ void main() {
     profileBloc = MockProfileBloc();
     when(() => mockBloc.state).thenReturn(const AuthInitial());
     when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
-    when(() => postBloc.state).thenReturn(PostLoaded(posts: []));
+    when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
     when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => profileBloc.state).thenReturn(const ProfileInitial());
     when(() => profileBloc.stream).thenAnswer((_) => const Stream.empty());
@@ -148,7 +148,8 @@ void main() {
       when(() => mockRepo.authStateChanges)
           .thenAnswer((_) => const Stream.empty());
 
-      await tester.pumpWidget(_buildApp(mockRepo, mockBloc, postBloc, profileBloc));
+      await tester.pumpWidget(
+          _buildApp(mockRepo, mockBloc, postBloc, profileBloc));
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
 
       expect(find.byType(LoginScreen), findsOneWidget);
