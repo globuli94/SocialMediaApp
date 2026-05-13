@@ -86,9 +86,10 @@ void main() {
     postBloc = MockPostBloc();
     profileBloc = MockProfileBloc();
 
-    // Default: not authenticated, profile in initial state, posts empty.
+    // Default: not authenticated, feed with no posts, profile in initial state.
     when(() => authBloc.state).thenReturn(const AuthInitial());
-    when(() => postBloc.state).thenReturn(PostLoaded(posts: []));
+    when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
+    when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => profileBloc.state).thenReturn(const ProfileInitial());
   });
 

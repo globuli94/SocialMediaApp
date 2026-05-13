@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
@@ -15,15 +14,22 @@ import 'package:social_network/features/profile/presentation/widgets/avatar_widg
 /// Shows the author avatar, display name, relative timestamp, post text,
 /// optional image, and a delete button when the post belongs to the current
 /// user.
+///
+/// Provide [onAuthorTap] to handle taps on the author row (avatar + name).
+/// When omitted the tap is a no-op.
 class PostCard extends StatelessWidget {
   const PostCard({
     super.key,
     required this.post,
     required this.currentUserUid,
+    this.onAuthorTap,
   });
 
   final PostEntity post;
   final String currentUserUid;
+
+  /// Called when the user taps the author avatar or display name.
+  final VoidCallback? onAuthorTap;
 
   String _relativeTime(DateTime createdAt) {
     final diff = DateTime.now().difference(createdAt);
@@ -44,7 +50,7 @@ class PostCard extends StatelessWidget {
             Row(
               children: [
                 GestureDetector(
-                  onTap: () => context.push('/profile/${post.authorUid}'),
+                  onTap: onAuthorTap,
                   child: Row(
                     children: [
                       AvatarWidget(

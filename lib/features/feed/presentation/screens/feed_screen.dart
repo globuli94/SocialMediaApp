@@ -91,6 +91,8 @@ class _FeedScreenState extends State<FeedScreen> {
                               .user
                               .uid
                           : '',
+                  onAuthorTap: () =>
+                      context.push('/profile/${state.posts[index].authorUid}'),
                 ),
               ),
             );

@@ -73,6 +73,7 @@ Widget _buildSubject({
   required MockPostBloc postBloc,
   required PostEntity post,
   required String currentUserUid,
+  VoidCallback? onAuthorTap,
 }) {
   return BlocProvider<PostBloc>.value(
     value: postBloc,
@@ -81,6 +82,7 @@ Widget _buildSubject({
         body: PostCard(
           post: post,
           currentUserUid: currentUserUid,
+          onAuthorTap: onAuthorTap,
         ),
       ),
     ),
@@ -305,6 +307,69 @@ void main() {
 
       // The Card and Padding are present — AvatarWidget renders a CircleAvatar
       expect(find.byType(Card), findsOneWidget);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // onAuthorTap callback
+  // -------------------------------------------------------------------------
+
+  group('onAuthorTap', () {
+    testWidgets('calls onAuthorTap when the author row is tapped',
+        (tester) async {
+      var tapCount = 0;
+
+      await tester.pumpWidget(
+        _buildSubject(
+          postBloc: postBloc,
+          post: _ownPost,
+          currentUserUid: 'uid-me',
+          onAuthorTap: () => tapCount++,
+        ),
+      );
+
+      // The GestureDetector wrapping the author row contains the display name.
+      await tester.tap(find.text('Alice'));
+      await tester.pump();
+
+      expect(tapCount, 1);
+    });
+
+    testWidgets('does not crash when onAuthorTap is null', (tester) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          postBloc: postBloc,
+          post: _ownPost,
+          currentUserUid: 'uid-me',
+          // onAuthorTap intentionally omitted (null)
+        ),
+      );
+
+      // Tapping the author row with onAuthorTap == null must not throw.
+      await tester.tap(find.text('Alice'));
+      await tester.pump();
+
+      // Widget still renders normally.
+      expect(find.text('Alice'), findsOneWidget);
+    });
+
+    testWidgets('calls onAuthorTap when avatar area is tapped', (tester) async {
+      var tapCount = 0;
+
+      await tester.pumpWidget(
+        _buildSubject(
+          postBloc: postBloc,
+          post: _ownPost,
+          currentUserUid: 'uid-me',
+          onAuthorTap: () => tapCount++,
+        ),
+      );
+
+      // GestureDetector wraps avatar + display name — tap the GestureDetector.
+      await tester.tap(find.byType(GestureDetector).first);
+      await tester.pump();
+
+      expect(tapCount, 1);
     });
   });
 }
