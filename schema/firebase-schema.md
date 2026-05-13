@@ -23,6 +23,26 @@ Stores public profile data for each registered user.
 | avatarUrl | string | no | URL to profile picture in Firebase Storage |
 | createdAt | timestamp | yes | Account creation time |
 | postCount | number | no | Cached count of the user's posts — default 0 |
+| followingCount | number | no | Cached count of users this user follows — default 0; absent on existing docs until first follow action |
+| followerCount | number | no | Cached count of users following this user — default 0; absent on existing docs until first follow action |
+
+### Subcollection: users/{userId}/following
+
+Tracks the users that `userId` is following. Written atomically alongside `followerCount`/`followingCount` increments via a Firestore batch write.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| followeeId | string | yes | UID of the user being followed — matches the document ID |
+| createdAt | timestamp | yes | Time the follow relationship was created |
+
+### Subcollection: users/{userId}/followers
+
+Tracks the users who follow `userId`. Written atomically alongside `followerCount`/`followingCount` increments via a Firestore batch write.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| followerId | string | yes | UID of the user who is following — matches the document ID |
+| createdAt | timestamp | yes | Time the follow relationship was created |
 
 ---
 
