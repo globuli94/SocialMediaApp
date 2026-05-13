@@ -88,9 +88,11 @@ void main() {
 
     // Default: not authenticated, feed with no posts, profile in initial state.
     when(() => authBloc.state).thenReturn(const AuthInitial());
+    when(() => authBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
     when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => profileBloc.state).thenReturn(const ProfileInitial());
+    when(() => profileBloc.stream).thenAnswer((_) => const Stream.empty());
   });
 
   group('AppShellScreen', () {

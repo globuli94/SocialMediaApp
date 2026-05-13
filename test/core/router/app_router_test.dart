@@ -148,7 +148,8 @@ void main() {
       when(() => mockRepo.authStateChanges)
           .thenAnswer((_) => const Stream.empty());
 
-      await tester.pumpWidget(_buildApp(mockRepo, mockBloc, postBloc, profileBloc));
+      await tester.pumpWidget(
+          _buildApp(mockRepo, mockBloc, postBloc, profileBloc));
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
 
       expect(find.byType(LoginScreen), findsOneWidget);

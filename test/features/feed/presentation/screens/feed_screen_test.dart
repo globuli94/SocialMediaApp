@@ -1,9 +1,12 @@
 // test/features/feed/presentation/screens/feed_screen_test.dart
 //
 // Widget tests for FeedScreen — verifies rendering from PostBloc state:
-// PostLoading spinner, empty state with RefreshIndicator, post list with
-// RefreshIndicator, pull-to-refresh dispatches PostWatchStarted, and
-// author tap navigates to /profile/:uid.
+// PostLoading spinner, empty state with pull-to-refresh, post list with
+// RefreshIndicator, error message, PostWatchStarted on pull-to-refresh,
+// and author tap navigation to /profile/:uid.
+//
+// FeedScreen drives its UI exclusively from PostBloc — there is no FeedBloc.
+// The RefreshIndicator re-dispatches PostWatchStarted on pull.
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
@@ -48,7 +51,7 @@ PostEntity _makePost(String id, {String content = ''}) => PostEntity(
     );
 
 // ---------------------------------------------------------------------------
-// Helper — simple MaterialApp (no router)
+// Helpers
 // ---------------------------------------------------------------------------
 
 Widget _buildSubject({
@@ -82,10 +85,9 @@ void main() {
   setUp(() {
     authBloc = MockAuthBloc();
     postBloc = MockPostBloc();
-
     when(() => authBloc.state)
         .thenReturn(const AuthAuthenticated(user: _testUser));
-    when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
+    when(() => authBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
   });
 
@@ -98,7 +100,8 @@ void main() {
         (tester) async {
       when(() => postBloc.state).thenReturn(const PostLoading());
 
-      await tester.pumpWidget(_buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -110,22 +113,36 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('PostLoaded empty state', () {
-    testWidgets('shows "No posts yet." when posts list is empty', (tester) async {
+    testWidgets('shows "No posts yet." when posts list is empty',
+        (tester) async {
       when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
 
-      await tester.pumpWidget(_buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
       await tester.pump();
 
       expect(find.text('No posts yet.'), findsOneWidget);
     });
 
-    testWidgets('renders RefreshIndicator on empty feed', (tester) async {
+    testWidgets('renders RefreshIndicator for empty state', (tester) async {
       when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
 
-      await tester.pumpWidget(_buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
       await tester.pump();
 
       expect(find.byType(RefreshIndicator), findsOneWidget);
+    });
+
+    testWidgets('does not show CircularProgressIndicator for empty loaded state',
+        (tester) async {
+      when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
+
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
 
@@ -138,7 +155,8 @@ void main() {
       final posts = [_makePost('p1'), _makePost('p2')];
       when(() => postBloc.state).thenReturn(PostLoaded(posts: posts));
 
-      await tester.pumpWidget(_buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
       await tester.pump();
 
       expect(find.text('Post content p1'), findsOneWidget);
@@ -149,7 +167,8 @@ void main() {
       final posts = [_makePost('p1')];
       when(() => postBloc.state).thenReturn(PostLoaded(posts: posts));
 
-      await tester.pumpWidget(_buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
       await tester.pump();
 
       expect(find.byType(RefreshIndicator), findsOneWidget);
@@ -165,10 +184,29 @@ void main() {
       when(() => postBloc.state)
           .thenReturn(const PostFailure(error: 'Something went wrong'));
 
-      await tester.pumpWidget(_buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
       await tester.pump();
 
       expect(find.text('Something went wrong'), findsOneWidget);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // PostInitial
+  // -------------------------------------------------------------------------
+
+  group('PostInitial state', () {
+    testWidgets('shows nothing when state is PostInitial', (tester) async {
+      when(() => postBloc.state).thenReturn(const PostInitial());
+
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pump();
+
+      expect(find.text('No posts yet.'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(ListView), findsNothing);
     });
   });
 
@@ -177,14 +215,18 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('RefreshIndicator', () {
-    testWidgets('dispatches PostWatchStarted on pull-to-refresh', (tester) async {
+    testWidgets('dispatches PostWatchStarted on pull-to-refresh',
+        (tester) async {
       final posts = [_makePost('p1')];
       when(() => postBloc.state).thenReturn(PostLoaded(posts: posts));
-      // stream must emit a non-loading state for onRefresh to complete
-      when(() => postBloc.stream)
-          .thenAnswer((_) => Stream.value(PostLoaded(posts: posts)));
+      // Provide a stream that emits a non-PostLoading state so the
+      // onRefresh future's firstWhere() can complete.
+      when(() => postBloc.stream).thenAnswer(
+        (_) => Stream.value(PostLoaded(posts: posts)),
+      );
 
-      await tester.pumpWidget(_buildSubject(authBloc: authBloc, postBloc: postBloc));
+      await tester.pumpWidget(
+          _buildSubject(authBloc: authBloc, postBloc: postBloc));
       await tester.pump();
 
       final refreshState = tester.state<RefreshIndicatorState>(
@@ -195,30 +237,16 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      verify(() => postBloc.add(const PostWatchStarted()))
-          .called(greaterThanOrEqualTo(1));
+      // initState also dispatches PostWatchStarted; the refresh adds at least
+      // one more — use greaterThanOrEqualTo to account for both.
+      verify(
+        () => postBloc.add(const PostWatchStarted()),
+      ).called(greaterThanOrEqualTo(1));
     });
   });
 
   // -------------------------------------------------------------------------
-  // PostInitial (no-op / empty widget)
-  // -------------------------------------------------------------------------
-
-  group('PostInitial state', () {
-    testWidgets('shows nothing when state is PostInitial', (tester) async {
-      when(() => postBloc.state).thenReturn(const PostInitial());
-
-      await tester.pumpWidget(_buildSubject(authBloc: authBloc, postBloc: postBloc));
-      await tester.pump();
-
-      expect(find.text('No posts yet.'), findsNothing);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.byType(ListView), findsNothing);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // Author tap → go_router navigation to /profile/:uid
+  // Author tap → /profile/:uid
   // -------------------------------------------------------------------------
 
   group('author tap navigation', () {
@@ -241,8 +269,7 @@ void main() {
           ),
           GoRoute(
             path: '/post/create',
-            builder: (_, __) =>
-                const Scaffold(body: Text('Create Post')),
+            builder: (_, __) => const Scaffold(body: Text('Create Post')),
           ),
         ],
       );
@@ -256,7 +283,8 @@ void main() {
       );
     }
 
-    testWidgets('tapping author row navigates to /profile/<uid>', (tester) async {
+    testWidgets('tapping author row navigates to /profile/<uid>',
+        (tester) async {
       final post = PostEntity(
         id: 'p-nav',
         authorUid: 'uid-author-42',
@@ -267,7 +295,8 @@ void main() {
       when(() => postBloc.state).thenReturn(PostLoaded(posts: [post]));
       when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
 
-      await tester.pumpWidget(buildWithRouter(authBloc: authBloc, postBloc: postBloc));
+      await tester.pumpWidget(
+          buildWithRouter(authBloc: authBloc, postBloc: postBloc));
       await tester.pump();
 
       await tester.tap(find.text('Nav Author'));
