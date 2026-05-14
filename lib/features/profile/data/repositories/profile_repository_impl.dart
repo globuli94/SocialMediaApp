@@ -74,6 +74,8 @@ class ProfileRepositoryImpl implements ProfileRepository {
       bio: data['bio'] as String? ?? '',
       avatarUrl: data['avatarUrl'] as String?,
       postCount: (data['postCount'] as num?)?.toInt() ?? 0,
+      followerCount: (data['followerCount'] as num?)?.toInt() ?? 0,
+      followingCount: (data['followingCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

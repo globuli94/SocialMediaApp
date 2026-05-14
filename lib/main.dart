@@ -25,6 +25,9 @@ import 'package:social_network/features/profile/data/datasources/profile_remote_
 import 'package:social_network/features/profile/data/datasources/profile_storage_service.dart';
 import 'package:social_network/features/posts/data/repositories/post_repository_impl.dart';
 import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
+import 'package:social_network/features/follow/data/repositories/follow_repository_impl.dart';
+import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
@@ -58,9 +61,11 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
   late final AuthRepository _authRepository;
   late final ProfileRepository _profileRepository;
   late final PostRepository _postRepository;
+  late final FollowRepository _followRepository;
   late final AuthBloc _authBloc;
   late final ProfileBloc _profileBloc;
   late final PostBloc _postBloc;
+  late final FollowBloc _followBloc;
   late final GoRouter _router;
 
   @override
@@ -87,10 +92,14 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
       firestore: FirebaseFirestore.instance,
       storage: FirebaseStorage.instance,
     );
+    _followRepository = FollowRepositoryImpl(
+      firestore: FirebaseFirestore.instance,
+    );
     _authBloc = AuthBloc(authRepository: _authRepository)
       ..add(const AuthStarted());
     _profileBloc = ProfileBloc(profileRepository: _profileRepository);
     _postBloc = PostBloc(postRepository: _postRepository);
+    _followBloc = FollowBloc(followRepository: _followRepository);
     _router = createRouter(authRepository: _authRepository);
   }
 
@@ -99,23 +108,30 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     _authBloc.close();
     _profileBloc.close();
     _postBloc.close();
+    _followBloc.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
+    return MultiRepositoryProvider(
       providers: [
-        BlocProvider<AuthBloc>.value(value: _authBloc),
-        BlocProvider<ProfileBloc>.value(value: _profileBloc),
-        BlocProvider<PostBloc>.value(value: _postBloc),
+        RepositoryProvider<FollowRepository>.value(value: _followRepository),
       ],
-      child: MaterialApp.router(
-        title: 'Social Network',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthBloc>.value(value: _authBloc),
+          BlocProvider<ProfileBloc>.value(value: _profileBloc),
+          BlocProvider<PostBloc>.value(value: _postBloc),
+          BlocProvider<FollowBloc>.value(value: _followBloc),
+        ],
+        child: MaterialApp.router(
+          title: 'Social Network',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          ),
+          routerConfig: _router,
         ),
-        routerConfig: _router,
       ),
     );
   }

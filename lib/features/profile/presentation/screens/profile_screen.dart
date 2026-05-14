@@ -8,6 +8,9 @@ import 'package:go_router/go_router.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
@@ -17,7 +20,8 @@ import 'package:social_network/features/profile/presentation/widgets/avatar_widg
 ///
 /// If [uid] is `null`, the currently authenticated user's profile is shown and
 /// an "Edit Profile" button is rendered. When [uid] is provided and differs
-/// from the signed-in user, the screen is read-only.
+/// from the signed-in user, the screen is read-only with a Follow / Unfollow
+/// button.
 class ProfileScreen extends StatefulWidget {
   /// Creates a [ProfileScreen].
   ///
@@ -42,11 +46,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final currentUid =
         authState is AuthAuthenticated ? authState.user.uid : null;
     final targetUid = widget.uid ?? currentUid;
+    final isOwnProfile = widget.uid == null || widget.uid == currentUid;
 
     // Load profile on first resolution or when the target UID changes.
     if (targetUid != null && targetUid != _resolvedUid) {
       _resolvedUid = targetUid;
       context.read<ProfileBloc>().add(ProfileLoadRequested(uid: targetUid));
+      if (!isOwnProfile && currentUid != null) {
+        context.read<FollowBloc>().add(FollowWatchStarted(
+              followerId: currentUid,
+              followeeId: targetUid,
+            ));
+      }
     }
   }
 
@@ -56,6 +67,138 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final currentUid =
         authState is AuthAuthenticated ? authState.user.uid : null;
     final isOwnProfile = widget.uid == null || widget.uid == currentUid;
+
+    Widget body = BlocBuilder<ProfileBloc, ProfileState>(
+      builder: (BuildContext context, ProfileState state) {
+        return switch (state) {
+          ProfileInitial() || ProfileLoading() => const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ProfileLoaded(:final profile) ||
+          ProfileUpdating(:final profile) =>
+            SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 32,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  AvatarWidget(
+                    displayName: profile.displayName,
+                    avatarUrl: profile.avatarUrl,
+                    radius: 56,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    profile.displayName,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (profile.bio.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      profile.bio,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  _StatChip(label: 'Posts', value: profile.postCount),
+                  if (!isOwnProfile) ...[
+                    const SizedBox(height: 8),
+                    _StatChip(
+                        label: 'Followers', value: profile.followerCount),
+                    const SizedBox(height: 8),
+                    _StatChip(
+                        label: 'Following', value: profile.followingCount),
+                    const SizedBox(height: 16),
+                    BlocBuilder<FollowBloc, FollowState>(
+                      builder: (context, followState) {
+                        return switch (followState) {
+                          FollowLoaded(:final isFollowing)
+                              when isFollowing =>
+                            ElevatedButton(
+                              onPressed: () =>
+                                  context.read<FollowBloc>().add(
+                                        FollowToggleRequested(
+                                          followerId: currentUid!,
+                                          followeeId: _resolvedUid!,
+                                        ),
+                                      ),
+                              child: const Text('Unfollow'),
+                            ),
+                          FollowLoaded() => ElevatedButton(
+                              onPressed: () =>
+                                  context.read<FollowBloc>().add(
+                                        FollowToggleRequested(
+                                          followerId: currentUid!,
+                                          followeeId: _resolvedUid!,
+                                        ),
+                                      ),
+                              child: const Text('Follow'),
+                            ),
+                          FollowLoading() =>
+                            const CircularProgressIndicator(),
+                          _ => const SizedBox.shrink(),
+                        };
+                      },
+                    ),
+                  ],
+                  if (state is ProfileUpdating) ...[
+                    const SizedBox(height: 16),
+                    const CircularProgressIndicator(),
+                  ],
+                ],
+              ),
+            ),
+          ProfileFailure(:final error) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Could not load profile.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(error),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (_resolvedUid != null) {
+                          context.read<ProfileBloc>().add(
+                                ProfileLoadRequested(uid: _resolvedUid!),
+                              );
+                        }
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        };
+      },
+    );
+
+    // Wrap with a BlocListener only for non-own profiles so that counts
+    // refresh after a follow / unfollow toggle completes.
+    if (!isOwnProfile) {
+      body = BlocListener<FollowBloc, FollowState>(
+        listenWhen: (previous, current) =>
+            previous is FollowLoading && current is FollowLoaded,
+        listener: (context, followState) {
+          if (_resolvedUid != null) {
+            context
+                .read<ProfileBloc>()
+                .add(ProfileLoadRequested(uid: _resolvedUid!));
+          }
+        },
+        child: body,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -75,80 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ],
       ),
-      body: BlocBuilder<ProfileBloc, ProfileState>(
-        builder: (BuildContext context, ProfileState state) {
-          return switch (state) {
-            ProfileInitial() || ProfileLoading() => const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ProfileLoaded(:final profile) ||
-            ProfileUpdating(:final profile) =>
-              SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 32,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    AvatarWidget(
-                      displayName: profile.displayName,
-                      avatarUrl: profile.avatarUrl,
-                      radius: 56,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      profile.displayName,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      textAlign: TextAlign.center,
-                    ),
-                    if (profile.bio.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        profile.bio,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    _StatChip(label: 'Posts', value: profile.postCount),
-                    if (state is ProfileUpdating) ...[
-                      const SizedBox(height: 16),
-                      const CircularProgressIndicator(),
-                    ],
-                  ],
-                ),
-              ),
-            ProfileFailure(:final error) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Could not load profile.',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(error),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          if (_resolvedUid != null) {
-                            context.read<ProfileBloc>().add(
-                                  ProfileLoadRequested(uid: _resolvedUid!),
-                                );
-                          }
-                        },
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          };
-        },
-      ),
+      body: body,
     );
   }
 }
