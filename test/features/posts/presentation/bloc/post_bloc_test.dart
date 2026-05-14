@@ -323,9 +323,9 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('PostEvent props and equality', () {
-    test('PostWatchStarted props is empty', () {
+    test('PostWatchStarted props contains authorUids', () {
       const event = PostWatchStarted();
-      expect(event.props, isEmpty);
+      expect(event.props, equals([null]));
     });
 
     test('PostWatchStarted supports value equality', () {

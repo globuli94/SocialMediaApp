@@ -17,6 +17,9 @@ import 'package:social_network/features/profile/domain/entities/user_profile_ent
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
 import 'package:social_network/features/profile/presentation/screens/profile_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +30,9 @@ class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}
+
+class MockFollowBloc extends MockBloc<FollowEvent, FollowState>
+    implements FollowBloc {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -61,6 +67,7 @@ const UserProfileEntity otherProfile = UserProfileEntity(
 Widget _buildSubject({
   required MockAuthBloc authBloc,
   required MockProfileBloc profileBloc,
+  MockFollowBloc? followBloc,
   String? uid,
 }) {
   final router = GoRouter(
@@ -81,6 +88,8 @@ Widget _buildSubject({
     providers: [
       BlocProvider<AuthBloc>.value(value: authBloc),
       BlocProvider<ProfileBloc>.value(value: profileBloc),
+      if (followBloc != null)
+        BlocProvider<FollowBloc>.value(value: followBloc),
     ],
     child: MaterialApp.router(routerConfig: router),
   );
@@ -93,19 +102,25 @@ Widget _buildSubject({
 void main() {
   late MockAuthBloc authBloc;
   late MockProfileBloc profileBloc;
+  late MockFollowBloc followBloc;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
     registerFallbackValue(const AuthSignOutRequested());
+    registerFallbackValue(
+      const FollowWatchStarted(followerId: '', followeeId: ''),
+    );
   });
 
   setUp(() {
     authBloc = MockAuthBloc();
     profileBloc = MockProfileBloc();
+    followBloc = MockFollowBloc();
 
     // Default auth state: authenticated as testUser.
     when(() => authBloc.state)
         .thenReturn(const AuthAuthenticated(user: testUser));
+    when(() => followBloc.state).thenReturn(const FollowInitial());
   });
 
   // -------------------------------------------------------------------------
@@ -202,6 +217,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-other',
         ),
       );
@@ -217,6 +233,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-other',
         ),
       );
@@ -232,6 +249,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-other',
         ),
       );
@@ -319,6 +337,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-other',
         ),
       );
