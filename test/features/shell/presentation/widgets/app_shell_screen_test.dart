@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:social_network/features/auth/domain/entities/user_entity.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
@@ -98,6 +99,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
+    registerFallbackValue(const ProfileWatchRequested(uid: ''));
     registerFallbackValue(const PostWatchStarted());
     registerFallbackValue(
       const SearchQueryChanged(query: '', currentUid: ''),
@@ -379,6 +381,197 @@ void main() {
       final NavigationBar navBar =
           tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(navBar.selectedIndex, 1);
+    });
+
+    // -------------------------------------------------------------------------
+    // BUG-006 fix — Profile tab re-watches signed-in user's own profile
+    // -------------------------------------------------------------------------
+    //
+    // Root cause: The global ProfileBloc watch was overwritten when viewing
+    // another user's profile. Fix: _onDestinationSelected dispatches
+    // ProfileWatchRequested(uid: currentUser.uid) every time the Profile tab
+    // (index 2) is activated.
+
+    group('BUG-006 fix — Profile tab re-watches own profile', () {
+      const testUid = 'test-user-uid-123';
+      const testUser = UserEntity(
+        uid: testUid,
+        email: 'test@example.com',
+        displayName: 'Test User',
+      );
+
+      testWidgets(
+          'tapping Profile tab when authenticated dispatches '
+          'ProfileWatchRequested(uid: currentUser.uid)',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // Clear interactions recorded during the initial build (ProfileScreen
+        // dispatches ProfileWatchRequested in didChangeDependencies on first
+        // render). We only want to count dispatches from _onDestinationSelected.
+        clearInteractions(profileBloc);
+
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        verify(
+          () => profileBloc.add(const ProfileWatchRequested(uid: testUid)),
+        ).called(1);
+      });
+
+      testWidgets(
+          'tapping Profile tab when not authenticated does NOT dispatch '
+          'ProfileWatchRequested',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(const AuthUnauthenticated());
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // ProfileScreen.didChangeDependencies does not dispatch when auth state
+        // is AuthUnauthenticated (no uid resolved), so no clearInteractions
+        // needed.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        verifyNever(
+          () => profileBloc.add(any(that: isA<ProfileWatchRequested>())),
+        );
+      });
+
+      testWidgets(
+          'switching away and back to Profile tab dispatches '
+          'ProfileWatchRequested again on each activation',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // Clear initial-build dispatches from ProfileScreen.didChangeDependencies.
+        clearInteractions(profileBloc);
+
+        // First Profile tab activation via _onDestinationSelected.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Switch away to Feed (Feed AppBar is now offstage → find.text('Feed')
+        // is unambiguous, matching only the NavigationBar label).
+        await tester.tap(find.text('Feed'));
+        await tester.pump();
+
+        // Second Profile tab activation — _onDestinationSelected dispatches again.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Exactly 2 dispatches: one per Profile tab activation.
+        verify(
+          () => profileBloc.add(const ProfileWatchRequested(uid: testUid)),
+        ).called(2);
+      });
+
+      testWidgets(
+          'tapping Feed tab from Profile does NOT dispatch additional '
+          'ProfileWatchRequested',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // Navigate to Profile tab first so:
+        //   (a) _onDestinationSelected dispatches ProfileWatchRequested, and
+        //   (b) the FeedScreen AppBar goes offstage — making find.text('Feed')
+        //       unambiguous (only the NavigationBar label is onstage).
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Clear all recorded interactions so that the verifyNever below only
+        // checks interactions that happen AFTER this point.
+        clearInteractions(profileBloc);
+
+        // Tap Feed — _onDestinationSelected(0) should NOT dispatch because
+        // index 0 is not the profile tab index.
+        await tester.tap(find.text('Feed'));
+        await tester.pump();
+
+        verifyNever(
+          () => profileBloc.add(any(that: isA<ProfileWatchRequested>())),
+        );
+      });
+
+      testWidgets(
+          'tapping Search tab from Profile does NOT dispatch additional '
+          'ProfileWatchRequested',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // Navigate to Profile tab first so _onDestinationSelected has fired.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Clear all recorded interactions so that the verifyNever below only
+        // checks interactions that happen AFTER this point.
+        clearInteractions(profileBloc);
+
+        // Tap Search — _onDestinationSelected(1) should NOT dispatch because
+        // index 1 is not the profile tab index.
+        await tester.tap(find.text('Search'));
+        await tester.pump();
+
+        verifyNever(
+          () => profileBloc.add(any(that: isA<ProfileWatchRequested>())),
+        );
+      });
     });
   });
 }
