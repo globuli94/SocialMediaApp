@@ -12,6 +12,10 @@
 // Updated to provide SearchBloc and FollowRepository after FEAT-006 added the
 // Search tab (SearchScreen requires both in the widget tree).
 //
+// Updated to provide ProfileRepository after BUG-007 fix: the /profile/:uid
+// route builder calls context.read<ProfileRepository>() to create a scoped
+// ProfileBloc independent of the global one.
+//
 // Tests that navigate to /home use pump() instead of pumpAndSettle() because
 // ProfileScreen shows a CircularProgressIndicator whose animation never settles.
 
@@ -22,6 +26,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:go_router/go_router.dart';
 import 'package:social_network/core/router/app_router.dart';
 import 'package:social_network/features/auth/domain/entities/user_entity.dart';
 import 'package:social_network/features/auth/domain/repositories/auth_repository.dart';
@@ -33,9 +38,12 @@ import 'package:social_network/features/follow/domain/repositories/follow_reposi
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
+import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
+import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
+import 'package:social_network/features/profile/presentation/screens/profile_screen.dart';
 import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
 import 'package:social_network/features/search/presentation/bloc/search_event.dart';
 import 'package:social_network/features/search/presentation/bloc/search_state.dart';
@@ -59,6 +67,8 @@ class MockSearchBloc extends MockBloc<SearchEvent, SearchState>
 
 class MockFollowRepository extends Mock implements FollowRepository {}
 
+class MockProfileRepository extends Mock implements ProfileRepository {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -76,10 +86,15 @@ Widget _buildApp(
   MockProfileBloc profileBloc,
   MockSearchBloc searchBloc,
   MockFollowRepository followRepository,
-) {
-  final router = createRouter(authRepository: mockRepo);
-  return RepositoryProvider<FollowRepository>.value(
-    value: followRepository,
+  MockProfileRepository profileRepository, {
+  GoRouter? router,
+}) {
+  final effectiveRouter = router ?? createRouter(authRepository: mockRepo);
+  return MultiRepositoryProvider(
+    providers: [
+      RepositoryProvider<FollowRepository>.value(value: followRepository),
+      RepositoryProvider<ProfileRepository>.value(value: profileRepository),
+    ],
     child: MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: authBloc),
@@ -87,7 +102,7 @@ Widget _buildApp(
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<SearchBloc>.value(value: searchBloc),
       ],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(routerConfig: effectiveRouter),
     ),
   );
 }
@@ -103,9 +118,11 @@ void main() {
   late MockProfileBloc profileBloc;
   late MockSearchBloc searchBloc;
   late MockFollowRepository followRepository;
+  late MockProfileRepository profileRepository;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
+    registerFallbackValue(const ProfileWatchRequested(uid: ''));
     registerFallbackValue(const PostWatchStarted());
     registerFallbackValue(
       const SearchQueryChanged(query: '', currentUid: ''),
@@ -120,6 +137,7 @@ void main() {
     profileBloc = MockProfileBloc();
     searchBloc = MockSearchBloc();
     followRepository = MockFollowRepository();
+    profileRepository = MockProfileRepository();
     when(() => mockBloc.state).thenReturn(const AuthInitial());
     when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
@@ -184,6 +202,7 @@ void main() {
           profileBloc,
           searchBloc,
           followRepository,
+          profileRepository,
         ),
       );
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
@@ -200,8 +219,12 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        RepositoryProvider<FollowRepository>.value(
-          value: followRepository,
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<FollowRepository>.value(value: followRepository),
+            RepositoryProvider<ProfileRepository>.value(
+                value: profileRepository),
+          ],
           child: MultiBlocProvider(
             providers: [
               BlocProvider<AuthBloc>.value(value: mockBloc),
@@ -231,8 +254,12 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        RepositoryProvider<FollowRepository>.value(
-          value: followRepository,
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<FollowRepository>.value(value: followRepository),
+            RepositoryProvider<ProfileRepository>.value(
+                value: profileRepository),
+          ],
           child: MultiBlocProvider(
             providers: [
               BlocProvider<AuthBloc>.value(value: mockBloc),
@@ -263,8 +290,12 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        RepositoryProvider<FollowRepository>.value(
-          value: followRepository,
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<FollowRepository>.value(value: followRepository),
+            RepositoryProvider<ProfileRepository>.value(
+                value: profileRepository),
+          ],
           child: MultiBlocProvider(
             providers: [
               BlocProvider<AuthBloc>.value(value: mockBloc),
@@ -298,6 +329,299 @@ void main() {
       expect(find.byType(AppShellScreen), findsOneWidget);
 
       authController.close();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BUG-007 regression — /profile/:uid uses scoped ProfileBloc + FollowBloc
+  // ---------------------------------------------------------------------------
+  //
+  // Root cause: the global ProfileBloc used a sequential event transformer with
+  // emit.forEach on an infinite Firestore stream. ProfileWatchRequested events
+  // for other UIDs were queued and never processed, so Follow/Unfollow Firestore
+  // writes caused the global ProfileBloc to emit the current user's profile —
+  // making the screen appear to navigate away from the viewed profile.
+  //
+  // Fix: each /profile/:uid route builder wraps ProfileScreen in a
+  // MultiBlocProvider that creates a fresh ProfileBloc and FollowBloc scoped
+  // to that route. The global ProfileBloc is never touched.
+
+  group('BUG-007 fix — /profile/:uid uses scoped ProfileBloc + FollowBloc',
+      () {
+    const String otherUid = 'uid-other';
+    const UserProfileEntity otherProfile = UserProfileEntity(
+      uid: otherUid,
+      displayName: 'Other User',
+      bio: 'bio text',
+      avatarUrl: null,
+      postCount: 3,
+    );
+
+    setUp(() {
+      // Authenticate as _testUser so the router stays on /home after redirect.
+      when(() => mockRepo.currentUser).thenReturn(_testUser);
+      when(() => mockRepo.authStateChanges)
+          .thenAnswer((_) => const Stream.empty());
+      // AuthBloc must report authenticated so ProfileScreen resolves currentUid.
+      when(() => mockBloc.state)
+          .thenReturn(const AuthAuthenticated(user: _testUser));
+    });
+
+    testWidgets(
+        '/profile/:uid route renders a ProfileScreen widget',
+        (WidgetTester tester) async {
+      when(() => profileRepository.watchProfile(otherUid))
+          .thenAnswer((_) => const Stream.empty());
+      when(
+        () => followRepository.watchIsFollowing(
+          followerId: _testUser.uid,
+          followeeId: otherUid,
+        ),
+      ).thenAnswer((_) => const Stream.empty());
+
+      final router = createRouter(authRepository: mockRepo);
+      await tester.pumpWidget(
+        _buildApp(
+          mockRepo,
+          mockBloc,
+          postBloc,
+          profileBloc,
+          searchBloc,
+          followRepository,
+          profileRepository,
+          router: router,
+        ),
+      );
+      await tester.pump(); // Resolve auth redirect → /home
+
+      router.go('/profile/$otherUid');
+      await tester.pump(); // Route transition
+      await tester.pump(); // Scoped bloc initialisation
+
+      expect(find.byType(ProfileScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'navigating to /profile/:uid does NOT dispatch ProfileWatchRequested '
+        'to the global ProfileBloc',
+        (WidgetTester tester) async {
+      when(() => profileRepository.watchProfile(otherUid))
+          .thenAnswer((_) => Stream.value(otherProfile));
+      when(
+        () => followRepository.watchIsFollowing(
+          followerId: _testUser.uid,
+          followeeId: otherUid,
+        ),
+      ).thenAnswer((_) => Stream.value(false));
+
+      final router = createRouter(authRepository: mockRepo);
+      await tester.pumpWidget(
+        _buildApp(
+          mockRepo,
+          mockBloc,
+          postBloc,
+          profileBloc,
+          searchBloc,
+          followRepository,
+          profileRepository,
+          router: router,
+        ),
+      );
+      await tester.pump(); // Resolve redirect
+
+      // Clear any interactions from the initial /home render.
+      clearInteractions(profileBloc);
+
+      router.go('/profile/$otherUid');
+      await tester.pump(); // Route transition: builds ProfileScreen
+      await tester.pump(); // didChangeDependencies fires
+      await tester.pump(); // Scoped ProfileBloc event processing
+
+      // Ensure the route rendered (so the verifyNever is not trivially true).
+      expect(find.byType(ProfileScreen), findsOneWidget);
+
+      // The scoped ProfileBloc (not the global one) should handle this UID.
+      verifyNever(
+        () => profileBloc.add(ProfileWatchRequested(uid: otherUid)),
+      );
+    });
+
+    testWidgets(
+        'navigating to /profile/:uid calls ProfileRepository.watchProfile '
+        'via the scoped ProfileBloc (not the global mock bloc)',
+        (WidgetTester tester) async {
+      // Use Stream.value so the scoped ProfileBloc transitions all the way to
+      // ProfileLoaded — this ensures watchProfile is called AND that the BLoC
+      // event was fully processed before we verify.
+      when(() => profileRepository.watchProfile(otherUid))
+          .thenAnswer((_) => Stream.value(otherProfile));
+      when(
+        () => followRepository.watchIsFollowing(
+          followerId: _testUser.uid,
+          followeeId: otherUid,
+        ),
+      ).thenAnswer((_) => Stream.value(false));
+
+      final router = createRouter(authRepository: mockRepo);
+      await tester.pumpWidget(
+        _buildApp(
+          mockRepo,
+          mockBloc,
+          postBloc,
+          profileBloc,
+          searchBloc,
+          followRepository,
+          profileRepository,
+          router: router,
+        ),
+      );
+      await tester.pump(); // Resolve auth redirect → /home
+
+      router.go('/profile/$otherUid');
+      await tester.pump(); // Route transition: builds ProfileScreen
+      await tester.pump(); // didChangeDependencies → dispatches event to scoped bloc
+      await tester.pump(); // Scoped ProfileBloc processes event, calls watchProfile
+
+      // The scoped ProfileBloc must have called the repository, not the
+      // global MockProfileBloc.
+      verify(() => profileRepository.watchProfile(otherUid)).called(1);
+    });
+
+    testWidgets(
+        'tapping Follow on /profile/:uid does not navigate away '
+        'from the ProfileScreen',
+        (WidgetTester tester) async {
+      when(() => profileRepository.watchProfile(otherUid))
+          .thenAnswer((_) => Stream.value(otherProfile));
+      when(
+        () => followRepository.watchIsFollowing(
+          followerId: _testUser.uid,
+          followeeId: otherUid,
+        ),
+      ).thenAnswer((_) => Stream.value(false));
+      when(
+        () => followRepository.follow(
+          followerId: _testUser.uid,
+          followeeId: otherUid,
+        ),
+      ).thenAnswer((_) async {});
+
+      final router = createRouter(authRepository: mockRepo);
+      await tester.pumpWidget(
+        _buildApp(
+          mockRepo,
+          mockBloc,
+          postBloc,
+          profileBloc,
+          searchBloc,
+          followRepository,
+          profileRepository,
+          router: router,
+        ),
+      );
+      await tester.pump();
+
+      router.go('/profile/$otherUid');
+      // Multiple pumps to allow the scoped ProfileBloc and FollowBloc to
+      // process their Stream.value emissions before we interact with the UI.
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Follow'), findsOneWidget);
+
+      await tester.tap(find.text('Follow'));
+      await tester.pump();
+
+      // The screen must NOT navigate away — ProfileScreen remains in tree.
+      expect(find.byType(ProfileScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping Unfollow on /profile/:uid does not navigate away '
+        'from the ProfileScreen',
+        (WidgetTester tester) async {
+      when(() => profileRepository.watchProfile(otherUid))
+          .thenAnswer((_) => Stream.value(otherProfile));
+      when(
+        () => followRepository.watchIsFollowing(
+          followerId: _testUser.uid,
+          followeeId: otherUid,
+        ),
+      ).thenAnswer((_) => Stream.value(true));
+      when(
+        () => followRepository.unfollow(
+          followerId: _testUser.uid,
+          followeeId: otherUid,
+        ),
+      ).thenAnswer((_) async {});
+
+      final router = createRouter(authRepository: mockRepo);
+      await tester.pumpWidget(
+        _buildApp(
+          mockRepo,
+          mockBloc,
+          postBloc,
+          profileBloc,
+          searchBloc,
+          followRepository,
+          profileRepository,
+          router: router,
+        ),
+      );
+      await tester.pump();
+
+      router.go('/profile/$otherUid');
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Unfollow'), findsOneWidget);
+
+      await tester.tap(find.text('Unfollow'));
+      await tester.pump();
+
+      // The screen must NOT navigate away — ProfileScreen remains in tree.
+      expect(find.byType(ProfileScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'after viewing /profile/:uid, global ProfileBloc state is unchanged '
+        '(Profile tab still shows the logged-in user)',
+        (WidgetTester tester) async {
+      when(() => profileRepository.watchProfile(otherUid))
+          .thenAnswer((_) => const Stream.empty());
+      when(
+        () => followRepository.watchIsFollowing(
+          followerId: _testUser.uid,
+          followeeId: otherUid,
+        ),
+      ).thenAnswer((_) => const Stream.empty());
+
+      final router = createRouter(authRepository: mockRepo);
+      await tester.pumpWidget(
+        _buildApp(
+          mockRepo,
+          mockBloc,
+          postBloc,
+          profileBloc,
+          searchBloc,
+          followRepository,
+          profileRepository,
+          router: router,
+        ),
+      );
+      await tester.pump();
+
+      // Capture global ProfileBloc state before navigating to another profile.
+      final stateBefore = profileBloc.state;
+
+      router.go('/profile/$otherUid');
+      await tester.pump();
+      await tester.pump();
+
+      // The global ProfileBloc state must be identical — it was never touched.
+      expect(profileBloc.state, stateBefore);
     });
   });
 }
