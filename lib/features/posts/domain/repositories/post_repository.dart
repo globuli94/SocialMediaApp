@@ -15,6 +15,9 @@ abstract class PostRepository {
   /// Ordered by createdAt descending.
   Stream<List<PostEntity>> watchPosts();
 
+  /// Emits the posts authored by [authorUid], ordered by createdAt descending.
+  Stream<List<PostEntity>> watchPostsByUser(String authorUid);
+
   /// Creates a new post. Uploads [imageBytes] to Storage first when provided.
   /// Returns the created [PostEntity].
   Future<PostEntity> createPost({
