@@ -17,7 +17,12 @@ abstract class PostEvent extends Equatable {
 
 /// Starts watching the posts stream from Firestore.
 class PostWatchStarted extends PostEvent {
-  const PostWatchStarted();
+  const PostWatchStarted({this.authorUids});
+
+  final List<String>? authorUids;
+
+  @override
+  List<Object?> get props => [authorUids];
 }
 
 /// Requests creation of a new post.
