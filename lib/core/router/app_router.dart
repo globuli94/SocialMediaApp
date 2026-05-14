@@ -5,12 +5,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:social_network/features/auth/domain/repositories/auth_repository.dart';
 import 'package:social_network/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/signup_screen.dart';
+import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/posts/presentation/screens/create_post_screen.dart';
+import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
+import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:social_network/features/profile/presentation/screens/profile_screen.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
@@ -83,8 +88,23 @@ GoRouter createRouter({required AuthRepository authRepository}) {
       ),
       GoRoute(
         path: '/profile/:uid',
-        builder: (BuildContext context, GoRouterState state) =>
-            ProfileScreen(uid: state.pathParameters['uid']),
+        builder: (BuildContext context, GoRouterState state) {
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<ProfileBloc>(
+                create: (_) => ProfileBloc(
+                  profileRepository: context.read<ProfileRepository>(),
+                ),
+              ),
+              BlocProvider<FollowBloc>(
+                create: (_) => FollowBloc(
+                  followRepository: context.read<FollowRepository>(),
+                ),
+              ),
+            ],
+            child: ProfileScreen(uid: state.pathParameters['uid']),
+          );
+        },
       ),
       GoRoute(
         path: '/post/create',
