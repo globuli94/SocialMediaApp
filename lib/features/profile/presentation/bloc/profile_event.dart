@@ -14,6 +14,21 @@ sealed class ProfileEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+/// Requests a real-time stream of the profile for [uid].
+///
+/// [ProfileBloc] will emit a new [ProfileLoaded] state on every Firestore
+/// change, keeping followerCount and followingCount up to date.
+final class ProfileWatchRequested extends ProfileEvent {
+  /// Creates a [ProfileWatchRequested].
+  const ProfileWatchRequested({required this.uid});
+
+  /// The Firebase Auth UID whose profile to watch.
+  final String uid;
+
+  @override
+  List<Object?> get props => [uid];
+}
+
 /// Requests loading the profile for [uid] from Firestore.
 ///
 /// If no document exists for [uid], the data source creates one with defaults.

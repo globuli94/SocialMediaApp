@@ -66,6 +66,11 @@ class ProfileRepositoryImpl implements ProfileRepository {
     }
   }
 
+  @override
+  Stream<UserProfileEntity> watchProfile(String uid) {
+    return _dataSource.watchProfile(uid).map(_mapToEntity);
+  }
+
   /// Maps a raw Firestore [data] map to a [UserProfileEntity].
   UserProfileEntity _mapToEntity(Map<String, dynamic> data) {
     return UserProfileEntity(
@@ -74,6 +79,8 @@ class ProfileRepositoryImpl implements ProfileRepository {
       bio: data['bio'] as String? ?? '',
       avatarUrl: data['avatarUrl'] as String?,
       postCount: (data['postCount'] as num?)?.toInt() ?? 0,
+      followerCount: (data['followerCount'] as num?)?.toInt() ?? 0,
+      followingCount: (data['followingCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

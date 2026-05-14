@@ -13,6 +13,9 @@ import 'package:social_network/features/auth/domain/entities/user_entity.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
 import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
@@ -27,6 +30,9 @@ class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}
+
+class MockFollowBloc extends MockBloc<FollowEvent, FollowState>
+    implements FollowBloc {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -61,6 +67,7 @@ const UserProfileEntity otherProfile = UserProfileEntity(
 Widget _buildSubject({
   required MockAuthBloc authBloc,
   required MockProfileBloc profileBloc,
+  required MockFollowBloc followBloc,
   String? uid,
 }) {
   final router = GoRouter(
@@ -81,6 +88,7 @@ Widget _buildSubject({
     providers: [
       BlocProvider<AuthBloc>.value(value: authBloc),
       BlocProvider<ProfileBloc>.value(value: profileBloc),
+      BlocProvider<FollowBloc>.value(value: followBloc),
     ],
     child: MaterialApp.router(routerConfig: router),
   );
@@ -93,19 +101,26 @@ Widget _buildSubject({
 void main() {
   late MockAuthBloc authBloc;
   late MockProfileBloc profileBloc;
+  late MockFollowBloc followBloc;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
     registerFallbackValue(const AuthSignOutRequested());
+    registerFallbackValue(const FollowWatchRequested(followerId: '', followeeId: ''));
+    registerFallbackValue(const FollowRequested(followerId: '', followeeId: ''));
+    registerFallbackValue(const UnfollowRequested(followerId: '', followeeId: ''));
   });
 
   setUp(() {
     authBloc = MockAuthBloc();
     profileBloc = MockProfileBloc();
+    followBloc = MockFollowBloc();
 
     // Default auth state: authenticated as testUser.
     when(() => authBloc.state)
         .thenReturn(const AuthAuthenticated(user: testUser));
+    // Default follow state: not following.
+    when(() => followBloc.state).thenReturn(const FollowInitial());
   });
 
   // -------------------------------------------------------------------------
@@ -117,7 +132,7 @@ void main() {
       when(() => profileBloc.state).thenReturn(const ProfileLoading());
 
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -133,7 +148,7 @@ void main() {
       when(() => profileBloc.state).thenReturn(const ProfileInitial());
 
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -152,7 +167,7 @@ void main() {
 
     testWidgets('renders display name and bio', (tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       expect(find.text('Alice'), findsOneWidget);
@@ -161,7 +176,7 @@ void main() {
 
     testWidgets('shows Edit button for own profile (uid == null)', (tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       expect(find.text('Edit'), findsOneWidget);
@@ -172,6 +187,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-me',
         ),
       );
@@ -181,7 +197,7 @@ void main() {
 
     testWidgets('shows post count chip', (tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       expect(find.text('7'), findsOneWidget);
@@ -202,6 +218,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-other',
         ),
       );
@@ -217,6 +234,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-other',
         ),
       );
@@ -232,6 +250,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-other',
         ),
       );
@@ -251,7 +270,7 @@ void main() {
           .thenReturn(const ProfileUpdating(profile: testProfile));
 
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       expect(find.text('Alice'), findsOneWidget);
@@ -269,7 +288,7 @@ void main() {
           .thenReturn(const ProfileFailure(error: 'Something went wrong'));
 
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       expect(find.text('Could not load profile.'), findsOneWidget);
@@ -291,7 +310,7 @@ void main() {
     testWidgets('shows logout IconButton for own profile (uid == null)',
         (tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       expect(find.byIcon(Icons.logout), findsOneWidget);
@@ -303,6 +322,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-me',
         ),
       );
@@ -319,6 +339,7 @@ void main() {
         _buildSubject(
           authBloc: authBloc,
           profileBloc: profileBloc,
+          followBloc: followBloc,
           uid: 'uid-other',
         ),
       );
@@ -329,13 +350,175 @@ void main() {
     testWidgets('tapping logout button dispatches AuthSignOutRequested',
         (tester) async {
       await tester.pumpWidget(
-        _buildSubject(authBloc: authBloc, profileBloc: profileBloc),
+        _buildSubject(authBloc: authBloc, profileBloc: profileBloc, followBloc: followBloc),
       );
 
       await tester.tap(find.byIcon(Icons.logout));
       await tester.pump();
 
       verify(() => authBloc.add(const AuthSignOutRequested())).called(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Follow / Unfollow button — other user's profile
+  // -------------------------------------------------------------------------
+
+  group('Follow/Unfollow button', () {
+    setUp(() {
+      when(() => profileBloc.state)
+          .thenReturn(const ProfileLoaded(profile: otherProfile));
+    });
+
+    testWidgets('shows Follow button when FollowLoaded(isFollowing: false)',
+        (tester) async {
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: false));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.text('Follow'), findsOneWidget);
+      expect(find.text('Unfollow'), findsNothing);
+    });
+
+    testWidgets('shows Unfollow button when FollowLoaded(isFollowing: true)',
+        (tester) async {
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: true));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.text('Unfollow'), findsOneWidget);
+      expect(find.text('Follow'), findsNothing);
+    });
+
+    testWidgets('shows CircularProgressIndicator when FollowLoading',
+        (tester) async {
+      when(() => followBloc.state).thenReturn(const FollowLoading());
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('tapping Follow button dispatches FollowRequested',
+        (tester) async {
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: false));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      await tester.tap(find.text('Follow'));
+      await tester.pump();
+
+      verify(
+        () => followBloc.add(
+          const FollowRequested(followerId: 'uid-me', followeeId: 'uid-other'),
+        ),
+      ).called(1);
+    });
+
+    testWidgets('tapping Unfollow button dispatches UnfollowRequested',
+        (tester) async {
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: true));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      await tester.tap(find.text('Unfollow'));
+      await tester.pump();
+
+      verify(
+        () => followBloc.add(
+          const UnfollowRequested(
+              followerId: 'uid-me', followeeId: 'uid-other'),
+        ),
+      ).called(1);
+    });
+
+    testWidgets('Follow button is absent on own profile (uid == null)',
+        (tester) async {
+      when(() => profileBloc.state)
+          .thenReturn(const ProfileLoaded(profile: testProfile));
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: false));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+        ),
+      );
+
+      expect(find.text('Follow'), findsNothing);
+      expect(find.text('Unfollow'), findsNothing);
+    });
+
+    testWidgets('stats row shows followerCount and followingCount',
+        (tester) async {
+      const profileWithCounts = UserProfileEntity(
+        uid: 'uid-other',
+        displayName: 'Bob',
+        bio: '',
+        avatarUrl: null,
+        postCount: 2,
+        followerCount: 42,
+        followingCount: 17,
+      );
+      when(() => profileBloc.state)
+          .thenReturn(const ProfileLoaded(profile: profileWithCounts));
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: false));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.text('42'), findsOneWidget);
+      expect(find.text('Followers'), findsOneWidget);
+      expect(find.text('17'), findsOneWidget);
+      expect(find.text('Following'), findsOneWidget);
     });
   });
 }

@@ -29,6 +29,9 @@ import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:social_network/features/follow/data/repositories/follow_repository_impl.dart';
+import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/firebase_options.dart';
 
 /// Application entry point.
@@ -58,9 +61,11 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
   late final AuthRepository _authRepository;
   late final ProfileRepository _profileRepository;
   late final PostRepository _postRepository;
+  late final FollowRepository _followRepository;
   late final AuthBloc _authBloc;
   late final ProfileBloc _profileBloc;
   late final PostBloc _postBloc;
+  late final FollowBloc _followBloc;
   late final GoRouter _router;
 
   @override
@@ -91,6 +96,10 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
       ..add(const AuthStarted());
     _profileBloc = ProfileBloc(profileRepository: _profileRepository);
     _postBloc = PostBloc(postRepository: _postRepository);
+    _followRepository = FollowRepositoryImpl(
+      firestore: FirebaseFirestore.instance,
+    );
+    _followBloc = FollowBloc(followRepository: _followRepository);
     _router = createRouter(authRepository: _authRepository);
   }
 
@@ -99,6 +108,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     _authBloc.close();
     _profileBloc.close();
     _postBloc.close();
+    _followBloc.close();
     super.dispose();
   }
 
@@ -109,6 +119,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
         BlocProvider<AuthBloc>.value(value: _authBloc),
         BlocProvider<ProfileBloc>.value(value: _profileBloc),
         BlocProvider<PostBloc>.value(value: _postBloc),
+        BlocProvider<FollowBloc>.value(value: _followBloc),
       ],
       child: MaterialApp.router(
         title: 'Social Network',

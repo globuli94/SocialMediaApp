@@ -14,6 +14,8 @@ class UserProfileEntity {
     required this.bio,
     this.avatarUrl,
     required this.postCount,
+    this.followerCount = 0,
+    this.followingCount = 0,
   });
 
   /// Firebase Auth UID — matches the Firestore `users/{uid}` document ID.
@@ -30,4 +32,10 @@ class UserProfileEntity {
 
   /// Cached count of the user's posts. Defaults to 0.
   final int postCount;
+
+  /// Number of users who follow this user. Defaults to 0.
+  final int followerCount;
+
+  /// Number of users this user is following. Defaults to 0.
+  final int followingCount;
 }
