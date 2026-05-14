@@ -88,4 +88,24 @@ class ProfileRemoteDataSource {
   }) async {
     await _firestoreService.updateUser(uid, {'avatarUrl': avatarUrl});
   }
+
+  /// Returns a stream of raw Firestore data for [uid] that updates in real time.
+  ///
+  /// If the document does not exist, emits an empty defaults map.
+  Stream<Map<String, dynamic>> watchProfile(String uid) {
+    return _firestoreService.watchUser(uid).map((data) {
+      if (data != null) return data;
+      final displayName =
+          _authService.currentUserEmail?.split('@').first ?? uid;
+      return <String, dynamic>{
+        'uid': uid,
+        'displayName': displayName,
+        'bio': '',
+        'avatarUrl': null,
+        'postCount': 0,
+        'followerCount': 0,
+        'followingCount': 0,
+      };
+    });
+  }
 }

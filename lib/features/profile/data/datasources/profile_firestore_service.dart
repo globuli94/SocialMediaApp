@@ -16,6 +16,10 @@ abstract class ProfileFirestoreService {
 
   /// Merges [data] into the existing user document for [uid].
   Future<void> updateUser(String uid, Map<String, dynamic> data);
+
+  /// Returns a stream that emits the raw data map for [uid] on every change,
+  /// or `null` if the document does not exist.
+  Stream<Map<String, dynamic>?> watchUser(String uid);
 }
 
 /// Production implementation backed by [FirebaseFirestore].
@@ -39,5 +43,14 @@ class FirebaseProfileFirestoreService implements ProfileFirestoreService {
   @override
   Future<void> updateUser(String uid, Map<String, dynamic> data) async {
     await _firestore.collection('users').doc(uid).update(data);
+  }
+
+  @override
+  Stream<Map<String, dynamic>?> watchUser(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((snap) => snap.exists ? snap.data() : null);
   }
 }

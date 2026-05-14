@@ -33,4 +33,8 @@ abstract class ProfileRepository {
     required Uint8List bytes,
     required String extension,
   });
+
+  /// Returns a stream that emits the [UserProfileEntity] for [uid] on every
+  /// Firestore change, enabling real-time follower/following count updates.
+  Stream<UserProfileEntity> watchProfile(String uid);
 }

@@ -9,20 +9,37 @@ import 'package:social_network/features/profile/presentation/bloc/profile_state.
 
 /// BLoC that manages user profile state.
 ///
-/// Listens for [ProfileLoadRequested], [ProfileUpdateRequested], and
-/// [ProfileAvatarUploadRequested] events and delegates all data operations to
-/// [ProfileRepository].
+/// Listens for [ProfileWatchRequested], [ProfileLoadRequested],
+/// [ProfileUpdateRequested], and [ProfileAvatarUploadRequested] events and
+/// delegates all data operations to [ProfileRepository].
 class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   /// Creates a [ProfileBloc] with the given [profileRepository].
   ProfileBloc({required ProfileRepository profileRepository})
       : _repository = profileRepository,
         super(const ProfileInitial()) {
+    on<ProfileWatchRequested>(_onWatchRequested);
     on<ProfileLoadRequested>(_onLoadRequested);
     on<ProfileUpdateRequested>(_onUpdateRequested);
     on<ProfileAvatarUploadRequested>(_onAvatarUploadRequested);
   }
 
   final ProfileRepository _repository;
+
+  /// Subscribes to real-time Firestore snapshots via [Emitter.forEach].
+  ///
+  /// Runs in its own event-type pipeline so [ProfileUpdateRequested] and
+  /// [ProfileAvatarUploadRequested] are not blocked by the open stream.
+  Future<void> _onWatchRequested(
+    ProfileWatchRequested event,
+    Emitter<ProfileState> emit,
+  ) async {
+    emit(const ProfileLoading());
+    await emit.forEach(
+      _repository.watchProfile(event.uid),
+      onData: (profile) => ProfileLoaded(profile: profile),
+      onError: (e, _) => ProfileFailure(error: e.toString()),
+    );
+  }
 
   /// Fetches the profile for the requested UID.
   ///

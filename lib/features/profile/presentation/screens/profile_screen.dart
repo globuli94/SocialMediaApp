@@ -8,6 +8,9 @@ import 'package:go_router/go_router.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
@@ -17,7 +20,8 @@ import 'package:social_network/features/profile/presentation/widgets/avatar_widg
 ///
 /// If [uid] is `null`, the currently authenticated user's profile is shown and
 /// an "Edit Profile" button is rendered. When [uid] is provided and differs
-/// from the signed-in user, the screen is read-only.
+/// from the signed-in user, the screen is read-only and a Follow/Unfollow
+/// button is displayed.
 class ProfileScreen extends StatefulWidget {
   /// Creates a [ProfileScreen].
   ///
@@ -34,6 +38,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String? _resolvedUid;
+  String? _currentUid;
 
   @override
   void didChangeDependencies() {
@@ -46,7 +51,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Load profile on first resolution or when the target UID changes.
     if (targetUid != null && targetUid != _resolvedUid) {
       _resolvedUid = targetUid;
-      context.read<ProfileBloc>().add(ProfileLoadRequested(uid: targetUid));
+      _currentUid = currentUid;
+      context
+          .read<ProfileBloc>()
+          .add(ProfileWatchRequested(uid: targetUid));
+
+      // Start watching follow status when viewing another user's profile.
+      if (currentUid != null && targetUid != currentUid) {
+        context.read<FollowBloc>().add(
+              FollowWatchRequested(
+                followerId: currentUid,
+                followeeId: targetUid,
+              ),
+            );
+      }
     }
   }
 
@@ -111,7 +129,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                     const SizedBox(height: 24),
-                    _StatChip(label: 'Posts', value: profile.postCount),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _StatChip(
+                          label: 'Posts',
+                          value: profile.postCount,
+                        ),
+                        const SizedBox(width: 32),
+                        _StatChip(
+                          label: 'Followers',
+                          value: profile.followerCount,
+                        ),
+                        const SizedBox(width: 32),
+                        _StatChip(
+                          label: 'Following',
+                          value: profile.followingCount,
+                        ),
+                      ],
+                    ),
+                    if (!isOwnProfile) ...[
+                      const SizedBox(height: 24),
+                      _FollowButton(
+                        currentUid: currentUid ?? _currentUid ?? '',
+                        targetUid: _resolvedUid ?? '',
+                      ),
+                    ],
                     if (state is ProfileUpdating) ...[
                       const SizedBox(height: 16),
                       const CircularProgressIndicator(),
@@ -136,7 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onPressed: () {
                           if (_resolvedUid != null) {
                             context.read<ProfileBloc>().add(
-                                  ProfileLoadRequested(uid: _resolvedUid!),
+                                  ProfileWatchRequested(uid: _resolvedUid!),
                                 );
                           }
                         },
@@ -149,6 +192,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
           };
         },
       ),
+    );
+  }
+}
+
+/// Follow/Unfollow button that reads from [FollowBloc].
+class _FollowButton extends StatelessWidget {
+  const _FollowButton({
+    required this.currentUid,
+    required this.targetUid,
+  });
+
+  final String currentUid;
+  final String targetUid;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<FollowBloc, FollowState>(
+      builder: (context, state) {
+        if (state is FollowLoading) {
+          return const SizedBox(
+            width: 120,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final isFollowing = state is FollowLoaded && state.isFollowing;
+        return ElevatedButton(
+          onPressed: () {
+            if (isFollowing) {
+              context.read<FollowBloc>().add(
+                    UnfollowRequested(
+                      followerId: currentUid,
+                      followeeId: targetUid,
+                    ),
+                  );
+            } else {
+              context.read<FollowBloc>().add(
+                    FollowRequested(
+                      followerId: currentUid,
+                      followeeId: targetUid,
+                    ),
+                  );
+            }
+          },
+          child: Text(isFollowing ? 'Unfollow' : 'Follow'),
+        );
+      },
     );
   }
 }
