@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:social_network/features/feed/presentation/screens/feed_screen.dart';
 import 'package:social_network/features/profile/presentation/screens/profile_screen.dart';
+import 'package:social_network/features/search/presentation/screens/search_screen.dart';
 
 /// Persistent app shell with a bottom [NavigationBar] (Material 3).
 ///
@@ -19,6 +20,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
 
   static const List<Widget> _screens = [
     FeedScreen(),
+    SearchScreen(),
     ProfileScreen(),
   ];
 
@@ -39,6 +41,11 @@ class _AppShellScreenState extends State<AppShellScreen> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Feed',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.search_outlined),
+            selectedIcon: Icon(Icons.search),
+            label: 'Search',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

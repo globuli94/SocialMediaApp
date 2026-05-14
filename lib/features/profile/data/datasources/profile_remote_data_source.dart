@@ -89,6 +89,18 @@ class ProfileRemoteDataSource {
     await _firestoreService.updateUser(uid, {'avatarUrl': avatarUrl});
   }
 
+  /// Returns raw Firestore data maps for users whose displayName starts with
+  /// [query], excluding [excludeUid], limited to 20 results.
+  Future<List<Map<String, dynamic>>> searchUsers({
+    required String query,
+    required String excludeUid,
+  }) async {
+    final results = await _firestoreService.searchUsersByDisplayName(
+      query: query,
+    );
+    return results.where((data) => data['uid'] != excludeUid).toList();
+  }
+
   /// Returns a stream of raw Firestore data for [uid] that updates in real time.
   ///
   /// If the document does not exist, emits an empty defaults map.

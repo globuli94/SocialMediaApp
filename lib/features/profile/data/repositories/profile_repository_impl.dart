@@ -71,6 +71,22 @@ class ProfileRepositoryImpl implements ProfileRepository {
     return _dataSource.watchProfile(uid).map(_mapToEntity);
   }
 
+  @override
+  Future<List<UserProfileEntity>> searchUsers({
+    required String query,
+    required String excludeUid,
+  }) async {
+    try {
+      final results = await _dataSource.searchUsers(
+        query: query,
+        excludeUid: excludeUid,
+      );
+      return results.map(_mapToEntity).toList();
+    } catch (e) {
+      throw 'Failed to search users: $e';
+    }
+  }
+
   /// Maps a raw Firestore [data] map to a [UserProfileEntity].
   UserProfileEntity _mapToEntity(Map<String, dynamic> data) {
     return UserProfileEntity(
