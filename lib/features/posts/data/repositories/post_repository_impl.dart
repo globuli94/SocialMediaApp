@@ -67,6 +67,10 @@ class PostRepositoryImpl implements PostRepository {
       'imageUrl': imageUrl,
     });
 
+    await _firestore.collection('users').doc(authorUid).update({
+      'postCount': FieldValue.increment(1),
+    });
+
     return PostEntity(
       id: postId,
       authorUid: authorUid,
@@ -83,8 +87,11 @@ class PostRepositoryImpl implements PostRepository {
     final docRef = _firestore.collection('posts').doc(postId);
     final snapshot = await docRef.get();
 
+    String? authorUid;
     if (snapshot.exists) {
-      final imageUrl = snapshot.data()?['imageUrl'] as String?;
+      final data = snapshot.data();
+      authorUid = data?['authorUid'] as String?;
+      final imageUrl = data?['imageUrl'] as String?;
       if (imageUrl != null && imageUrl.isNotEmpty) {
         try {
           await _storage.refFromURL(imageUrl).delete();
@@ -95,6 +102,12 @@ class PostRepositoryImpl implements PostRepository {
     }
 
     await docRef.delete();
+
+    if (authorUid != null) {
+      await _firestore.collection('users').doc(authorUid).update({
+        'postCount': FieldValue.increment(-1),
+      });
+    }
   }
 
   PostEntity _docToEntity(DocumentSnapshot<Map<String, dynamic>> doc) {
