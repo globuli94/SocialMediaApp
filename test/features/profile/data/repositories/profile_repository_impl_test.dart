@@ -233,4 +233,106 @@ void main() {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // searchUsers
+  // -------------------------------------------------------------------------
+
+  group('searchUsers', () {
+    const List<Map<String, dynamic>> rawResults = [
+      {
+        'uid': 'uid-alice',
+        'displayName': 'Alice',
+        'bio': 'Flutter dev',
+        'avatarUrl': null,
+        'postCount': 3,
+        'followerCount': 5,
+        'followingCount': 2,
+      },
+      {
+        'uid': 'uid-bob',
+        'displayName': 'Bob',
+        'bio': '',
+        'avatarUrl': 'https://example.com/bob.jpg',
+        'postCount': 0,
+        'followerCount': 0,
+        'followingCount': 0,
+      },
+    ];
+
+    test('maps raw data to UserProfileEntity list on success', () async {
+      when(
+        () => mockDataSource.searchUsers(
+          query: 'ali',
+          excludeUid: 'uid-me',
+        ),
+      ).thenAnswer((_) async => rawResults);
+
+      final List<UserProfileEntity> results = await sut.searchUsers(
+        query: 'ali',
+        excludeUid: 'uid-me',
+      );
+
+      expect(results.length, 2);
+      expect(results[0].uid, 'uid-alice');
+      expect(results[0].displayName, 'Alice');
+      expect(results[0].bio, 'Flutter dev');
+      expect(results[0].avatarUrl, isNull);
+      expect(results[0].postCount, 3);
+      expect(results[1].uid, 'uid-bob');
+      expect(results[1].avatarUrl, 'https://example.com/bob.jpg');
+    });
+
+    test('returns empty list when data source returns no results', () async {
+      when(
+        () => mockDataSource.searchUsers(
+          query: any(named: 'query'),
+          excludeUid: any(named: 'excludeUid'),
+        ),
+      ).thenAnswer((_) async => <Map<String, dynamic>>[]);
+
+      final results = await sut.searchUsers(
+        query: 'nobody',
+        excludeUid: 'uid-me',
+      );
+
+      expect(results, isEmpty);
+    });
+
+    test('delegates query and excludeUid to data source', () async {
+      when(
+        () => mockDataSource.searchUsers(
+          query: 'bob',
+          excludeUid: 'uid-alice',
+        ),
+      ).thenAnswer((_) async => <Map<String, dynamic>>[]);
+
+      await sut.searchUsers(query: 'bob', excludeUid: 'uid-alice');
+
+      verify(
+        () => mockDataSource.searchUsers(
+          query: 'bob',
+          excludeUid: 'uid-alice',
+        ),
+      ).called(1);
+    });
+
+    test('throws string error when dataSource.searchUsers throws', () async {
+      when(
+        () => mockDataSource.searchUsers(
+          query: any(named: 'query'),
+          excludeUid: any(named: 'excludeUid'),
+        ),
+      ).thenThrow(Exception('query failed'));
+
+      expect(
+        () => sut.searchUsers(query: 'test', excludeUid: 'uid-me'),
+        throwsA(isA<String>().having(
+          (s) => s,
+          'message',
+          contains('Failed to search users'),
+        )),
+      );
+    });
+  });
 }

@@ -9,6 +9,9 @@
 // Updated to provide PostBloc after FEAT-003 replaced the Feed tab placeholder
 // with the real FeedScreen (which uses BlocBuilder<PostBloc, PostState>).
 //
+// Updated to provide SearchBloc and FollowRepository after FEAT-006 added the
+// Search tab (SearchScreen requires both in the widget tree).
+//
 // Tests that navigate to /home use pump() instead of pumpAndSettle() because
 // ProfileScreen shows a CircularProgressIndicator whose animation never settles.
 
@@ -26,12 +29,16 @@ import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
+import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
+import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
+import 'package:social_network/features/search/presentation/bloc/search_event.dart';
+import 'package:social_network/features/search/presentation/bloc/search_state.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -46,6 +53,11 @@ class MockPostBloc extends MockBloc<PostEvent, PostState> implements PostBloc {}
 
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}
+
+class MockSearchBloc extends MockBloc<SearchEvent, SearchState>
+    implements SearchBloc {}
+
+class MockFollowRepository extends Mock implements FollowRepository {}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,15 +74,21 @@ Widget _buildApp(
   MockAuthBloc authBloc,
   MockPostBloc postBloc,
   MockProfileBloc profileBloc,
+  MockSearchBloc searchBloc,
+  MockFollowRepository followRepository,
 ) {
   final router = createRouter(authRepository: mockRepo);
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider<AuthBloc>.value(value: authBloc),
-      BlocProvider<PostBloc>.value(value: postBloc),
-      BlocProvider<ProfileBloc>.value(value: profileBloc),
-    ],
-    child: MaterialApp.router(routerConfig: router),
+  return RepositoryProvider<FollowRepository>.value(
+    value: followRepository,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: authBloc),
+        BlocProvider<PostBloc>.value(value: postBloc),
+        BlocProvider<ProfileBloc>.value(value: profileBloc),
+        BlocProvider<SearchBloc>.value(value: searchBloc),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
   );
 }
 
@@ -83,10 +101,16 @@ void main() {
   late MockAuthBloc mockBloc;
   late MockPostBloc postBloc;
   late MockProfileBloc profileBloc;
+  late MockSearchBloc searchBloc;
+  late MockFollowRepository followRepository;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
     registerFallbackValue(const PostWatchStarted());
+    registerFallbackValue(
+      const SearchQueryChanged(query: '', currentUid: ''),
+    );
+    registerFallbackValue(const SearchCleared());
   });
 
   setUp(() {
@@ -94,12 +118,16 @@ void main() {
     mockBloc = MockAuthBloc();
     postBloc = MockPostBloc();
     profileBloc = MockProfileBloc();
+    searchBloc = MockSearchBloc();
+    followRepository = MockFollowRepository();
     when(() => mockBloc.state).thenReturn(const AuthInitial());
     when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
     when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => profileBloc.state).thenReturn(const ProfileInitial());
     when(() => profileBloc.stream).thenAnswer((_) => const Stream.empty());
+    when(() => searchBloc.state).thenReturn(const SearchInitial());
+    when(() => searchBloc.stream).thenAnswer((_) => const Stream.empty());
   });
 
   group('GoRouterRefreshStream', () {
@@ -149,7 +177,15 @@ void main() {
           .thenAnswer((_) => const Stream.empty());
 
       await tester.pumpWidget(
-          _buildApp(mockRepo, mockBloc, postBloc, profileBloc));
+        _buildApp(
+          mockRepo,
+          mockBloc,
+          postBloc,
+          profileBloc,
+          searchBloc,
+          followRepository,
+        ),
+      );
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
 
       expect(find.byType(LoginScreen), findsOneWidget);
@@ -164,13 +200,17 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<AuthBloc>.value(value: mockBloc),
-            BlocProvider<PostBloc>.value(value: postBloc),
-            BlocProvider<ProfileBloc>.value(value: profileBloc),
-          ],
-          child: MaterialApp.router(routerConfig: router),
+        RepositoryProvider<FollowRepository>.value(
+          value: followRepository,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: mockBloc),
+              BlocProvider<PostBloc>.value(value: postBloc),
+              BlocProvider<ProfileBloc>.value(value: profileBloc),
+              BlocProvider<SearchBloc>.value(value: searchBloc),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -191,13 +231,17 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<AuthBloc>.value(value: mockBloc),
-            BlocProvider<PostBloc>.value(value: postBloc),
-            BlocProvider<ProfileBloc>.value(value: profileBloc),
-          ],
-          child: MaterialApp.router(routerConfig: router),
+        RepositoryProvider<FollowRepository>.value(
+          value: followRepository,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: mockBloc),
+              BlocProvider<PostBloc>.value(value: postBloc),
+              BlocProvider<ProfileBloc>.value(value: profileBloc),
+              BlocProvider<SearchBloc>.value(value: searchBloc),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
         ),
       );
       // pump() is sufficient to process the redirect — pumpAndSettle() would
@@ -219,13 +263,17 @@ void main() {
 
       final router = createRouter(authRepository: mockRepo);
       await tester.pumpWidget(
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<AuthBloc>.value(value: mockBloc),
-            BlocProvider<PostBloc>.value(value: postBloc),
-            BlocProvider<ProfileBloc>.value(value: profileBloc),
-          ],
-          child: MaterialApp.router(routerConfig: router),
+        RepositoryProvider<FollowRepository>.value(
+          value: followRepository,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: mockBloc),
+              BlocProvider<PostBloc>.value(value: postBloc),
+              BlocProvider<ProfileBloc>.value(value: profileBloc),
+              BlocProvider<SearchBloc>.value(value: searchBloc),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
         ),
       );
       // pump() instead of pumpAndSettle(): the open StreamController keeps
