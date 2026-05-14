@@ -1,7 +1,8 @@
 // test/features/follow/data/repositories/follow_repository_impl_test.dart
 //
-// Unit tests for FollowRepositoryImpl — covers follow(), unfollow(), and
-// watchIsFollowing() to satisfy the ≥ 80% repository coverage threshold.
+// Unit tests for FollowRepositoryImpl — covers follow(), unfollow(),
+// watchIsFollowing(), watchFollowers(), and watchFollowing() to satisfy the
+// ≥ 80% repository coverage threshold.
 //
 // Uses fake_cloud_firestore so no real Firebase instance is required.
 
@@ -112,6 +113,115 @@ void main() {
           await fakeFirestore.collection('users').doc('uid-b').get();
       // setUp seeds followerCount = 5; follow() increments to 6.
       expect(snap.data()?['followerCount'], equals(6));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // watchFollowers
+  // ---------------------------------------------------------------------------
+
+  group('watchFollowers()', () {
+    test('emits empty list when no followers subcollection docs exist',
+        () async {
+      await fakeFirestore.collection('users').doc('uid-a').set({});
+
+      final result = await sut.watchFollowers('uid-a').first;
+
+      expect(result, isEmpty);
+    });
+
+    test('emits FollowUserEntity for each follower doc', () async {
+      // Pre-seed the user profile for the follower.
+      await fakeFirestore.collection('users').doc('uid-b').set({
+        'displayName': 'Bob',
+        'avatarUrl': null,
+      });
+
+      // Create the follower subcollection entry.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-a')
+          .collection('followers')
+          .doc('uid-b')
+          .set({'followerId': 'uid-b'});
+
+      final result = await sut.watchFollowers('uid-a').first;
+
+      expect(result, hasLength(1));
+      expect(result.first.uid, equals('uid-b'));
+      expect(result.first.displayName, equals('Bob'));
+    });
+
+    test('returns empty displayName when follower user doc is missing',
+        () async {
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-a')
+          .collection('followers')
+          .doc('uid-ghost')
+          .set({'followerId': 'uid-ghost'});
+
+      final result = await sut.watchFollowers('uid-a').first;
+
+      expect(result, hasLength(1));
+      expect(result.first.uid, equals('uid-ghost'));
+      expect(result.first.displayName, equals(''));
+      expect(result.first.avatarUrl, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // watchFollowing
+  // ---------------------------------------------------------------------------
+
+  group('watchFollowing()', () {
+    test('emits empty list when no following subcollection docs exist',
+        () async {
+      await fakeFirestore.collection('users').doc('uid-a').set({});
+
+      final result = await sut.watchFollowing('uid-a').first;
+
+      expect(result, isEmpty);
+    });
+
+    test('emits FollowUserEntity for each following doc', () async {
+      // Pre-seed the user profile for the followee.
+      await fakeFirestore.collection('users').doc('uid-c').set({
+        'displayName': 'Carol',
+        'avatarUrl': 'https://example.com/carol.png',
+      });
+
+      // Create the following subcollection entry.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-a')
+          .collection('following')
+          .doc('uid-c')
+          .set({'followeeId': 'uid-c'});
+
+      final result = await sut.watchFollowing('uid-a').first;
+
+      expect(result, hasLength(1));
+      expect(result.first.uid, equals('uid-c'));
+      expect(result.first.displayName, equals('Carol'));
+      expect(result.first.avatarUrl, equals('https://example.com/carol.png'));
+    });
+
+    test('returns empty displayName when following user doc is missing',
+        () async {
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-a')
+          .collection('following')
+          .doc('uid-ghost')
+          .set({'followeeId': 'uid-ghost'});
+
+      final result = await sut.watchFollowing('uid-a').first;
+
+      expect(result, hasLength(1));
+      expect(result.first.uid, equals('uid-ghost'));
+      expect(result.first.displayName, equals(''));
+      expect(result.first.avatarUrl, isNull);
     });
   });
 
