@@ -107,6 +107,8 @@ void main() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
     registerFallbackValue(const AuthSignOutRequested());
     registerFallbackValue(const FollowWatchRequested(followerId: '', followeeId: ''));
+    registerFallbackValue(const FollowRequested(followerId: '', followeeId: ''));
+    registerFallbackValue(const UnfollowRequested(followerId: '', followeeId: ''));
   });
 
   setUp(() {
@@ -355,6 +357,168 @@ void main() {
       await tester.pump();
 
       verify(() => authBloc.add(const AuthSignOutRequested())).called(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Follow / Unfollow button — other user's profile
+  // -------------------------------------------------------------------------
+
+  group('Follow/Unfollow button', () {
+    setUp(() {
+      when(() => profileBloc.state)
+          .thenReturn(const ProfileLoaded(profile: otherProfile));
+    });
+
+    testWidgets('shows Follow button when FollowLoaded(isFollowing: false)',
+        (tester) async {
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: false));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.text('Follow'), findsOneWidget);
+      expect(find.text('Unfollow'), findsNothing);
+    });
+
+    testWidgets('shows Unfollow button when FollowLoaded(isFollowing: true)',
+        (tester) async {
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: true));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.text('Unfollow'), findsOneWidget);
+      expect(find.text('Follow'), findsNothing);
+    });
+
+    testWidgets('shows CircularProgressIndicator when FollowLoading',
+        (tester) async {
+      when(() => followBloc.state).thenReturn(const FollowLoading());
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('tapping Follow button dispatches FollowRequested',
+        (tester) async {
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: false));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      await tester.tap(find.text('Follow'));
+      await tester.pump();
+
+      verify(
+        () => followBloc.add(
+          const FollowRequested(followerId: 'uid-me', followeeId: 'uid-other'),
+        ),
+      ).called(1);
+    });
+
+    testWidgets('tapping Unfollow button dispatches UnfollowRequested',
+        (tester) async {
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: true));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      await tester.tap(find.text('Unfollow'));
+      await tester.pump();
+
+      verify(
+        () => followBloc.add(
+          const UnfollowRequested(
+              followerId: 'uid-me', followeeId: 'uid-other'),
+        ),
+      ).called(1);
+    });
+
+    testWidgets('Follow button is absent on own profile (uid == null)',
+        (tester) async {
+      when(() => profileBloc.state)
+          .thenReturn(const ProfileLoaded(profile: testProfile));
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: false));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+        ),
+      );
+
+      expect(find.text('Follow'), findsNothing);
+      expect(find.text('Unfollow'), findsNothing);
+    });
+
+    testWidgets('stats row shows followerCount and followingCount',
+        (tester) async {
+      const profileWithCounts = UserProfileEntity(
+        uid: 'uid-other',
+        displayName: 'Bob',
+        bio: '',
+        avatarUrl: null,
+        postCount: 2,
+        followerCount: 42,
+        followingCount: 17,
+      );
+      when(() => profileBloc.state)
+          .thenReturn(const ProfileLoaded(profile: profileWithCounts));
+      when(() => followBloc.state)
+          .thenReturn(const FollowLoaded(isFollowing: false));
+
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          profileBloc: profileBloc,
+          followBloc: followBloc,
+          uid: 'uid-other',
+        ),
+      );
+
+      expect(find.text('42'), findsOneWidget);
+      expect(find.text('Followers'), findsOneWidget);
+      expect(find.text('17'), findsOneWidget);
+      expect(find.text('Following'), findsOneWidget);
     });
   });
 }
