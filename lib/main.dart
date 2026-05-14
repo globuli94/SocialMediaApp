@@ -32,6 +32,7 @@ import 'package:social_network/features/profile/presentation/bloc/profile_bloc.d
 import 'package:social_network/features/follow/data/repositories/follow_repository_impl.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
 import 'package:social_network/firebase_options.dart';
 
 /// Application entry point.
@@ -66,6 +67,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
   late final ProfileBloc _profileBloc;
   late final PostBloc _postBloc;
   late final FollowBloc _followBloc;
+  late final SearchBloc _searchBloc;
   late final GoRouter _router;
 
   @override
@@ -100,6 +102,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
       firestore: FirebaseFirestore.instance,
     );
     _followBloc = FollowBloc(followRepository: _followRepository);
+    _searchBloc = SearchBloc(profileRepository: _profileRepository);
     _router = createRouter(authRepository: _authRepository);
   }
 
@@ -109,24 +112,31 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     _profileBloc.close();
     _postBloc.close();
     _followBloc.close();
+    _searchBloc.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
+    return MultiRepositoryProvider(
       providers: [
-        BlocProvider<AuthBloc>.value(value: _authBloc),
-        BlocProvider<ProfileBloc>.value(value: _profileBloc),
-        BlocProvider<PostBloc>.value(value: _postBloc),
-        BlocProvider<FollowBloc>.value(value: _followBloc),
+        RepositoryProvider<FollowRepository>.value(value: _followRepository),
       ],
-      child: MaterialApp.router(
-        title: 'Social Network',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthBloc>.value(value: _authBloc),
+          BlocProvider<ProfileBloc>.value(value: _profileBloc),
+          BlocProvider<PostBloc>.value(value: _postBloc),
+          BlocProvider<FollowBloc>.value(value: _followBloc),
+          BlocProvider<SearchBloc>.value(value: _searchBloc),
+        ],
+        child: MaterialApp.router(
+          title: 'Social Network',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          ),
+          routerConfig: _router,
         ),
-        routerConfig: _router,
       ),
     );
   }

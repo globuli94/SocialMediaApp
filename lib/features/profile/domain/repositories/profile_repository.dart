@@ -37,4 +37,11 @@ abstract class ProfileRepository {
   /// Returns a stream that emits the [UserProfileEntity] for [uid] on every
   /// Firestore change, enabling real-time follower/following count updates.
   Stream<UserProfileEntity> watchProfile(String uid);
+
+  /// Returns up to 20 [UserProfileEntity] results whose displayName starts with
+  /// [query], excluding the user identified by [excludeUid].
+  Future<List<UserProfileEntity>> searchUsers({
+    required String query,
+    required String excludeUid,
+  });
 }

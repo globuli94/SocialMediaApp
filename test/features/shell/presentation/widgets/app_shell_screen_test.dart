@@ -9,6 +9,9 @@
 // Updated to provide PostBloc after FEAT-003 replaced the Feed tab placeholder
 // with the real FeedScreen (which uses BlocBuilder<PostBloc, PostState>).
 //
+// Updated to provide SearchBloc and FollowRepository after FEAT-006 added the
+// Search tab (SearchScreen requires both in the widget tree even when offstage).
+//
 // Note: tests that navigate to the Profile tab use pump() instead of
 // pumpAndSettle() because ProfileScreen shows a CircularProgressIndicator
 // (in ProfileInitial state) whose animation never settles.
@@ -18,15 +21,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:social_network/features/auth/domain/entities/user_entity.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
+import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
+import 'package:social_network/features/search/presentation/bloc/search_event.dart';
+import 'package:social_network/features/search/presentation/bloc/search_state.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -40,6 +48,11 @@ class MockPostBloc extends MockBloc<PostEvent, PostState> implements PostBloc {}
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}
 
+class MockSearchBloc extends MockBloc<SearchEvent, SearchState>
+    implements SearchBloc {}
+
+class MockFollowRepository extends Mock implements FollowRepository {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -48,15 +61,21 @@ Widget _buildSubject({
   required MockAuthBloc authBloc,
   required MockPostBloc postBloc,
   required MockProfileBloc profileBloc,
+  required MockSearchBloc searchBloc,
+  required MockFollowRepository followRepository,
 }) {
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider<AuthBloc>.value(value: authBloc),
-      BlocProvider<PostBloc>.value(value: postBloc),
-      BlocProvider<ProfileBloc>.value(value: profileBloc),
-    ],
-    child: const MaterialApp(
-      home: AppShellScreen(),
+  return RepositoryProvider<FollowRepository>.value(
+    value: followRepository,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: authBloc),
+        BlocProvider<PostBloc>.value(value: postBloc),
+        BlocProvider<ProfileBloc>.value(value: profileBloc),
+        BlocProvider<SearchBloc>.value(value: searchBloc),
+      ],
+      child: const MaterialApp(
+        home: AppShellScreen(),
+      ),
     ),
   );
 }
@@ -75,16 +94,25 @@ void main() {
   late MockAuthBloc authBloc;
   late MockPostBloc postBloc;
   late MockProfileBloc profileBloc;
+  late MockSearchBloc searchBloc;
+  late MockFollowRepository followRepository;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
+    registerFallbackValue(const ProfileWatchRequested(uid: ''));
     registerFallbackValue(const PostWatchStarted());
+    registerFallbackValue(
+      const SearchQueryChanged(query: '', currentUid: ''),
+    );
+    registerFallbackValue(const SearchCleared());
   });
 
   setUp(() {
     authBloc = MockAuthBloc();
     postBloc = MockPostBloc();
     profileBloc = MockProfileBloc();
+    searchBloc = MockSearchBloc();
+    followRepository = MockFollowRepository();
 
     // Default: not authenticated, feed with no posts, profile in initial state.
     when(() => authBloc.state).thenReturn(const AuthInitial());
@@ -93,22 +121,29 @@ void main() {
     when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => profileBloc.state).thenReturn(const ProfileInitial());
     when(() => profileBloc.stream).thenAnswer((_) => const Stream.empty());
+    // Default search: initial state (shows prompt, no FollowRepository needed).
+    when(() => searchBloc.state).thenReturn(const SearchInitial());
+    when(() => searchBloc.stream).thenAnswer((_) => const Stream.empty());
   });
 
   group('AppShellScreen', () {
-    testWidgets('renders a NavigationBar with Feed and Profile destinations',
+    testWidgets(
+        'renders a NavigationBar with Feed, Search, and Profile destinations',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
       expect(find.byType(NavigationBar), findsOneWidget);
       // 'Feed' appears as both AppBar title and NavigationBar label.
       expect(find.text('Feed'), findsWidgets);
+      expect(find.text('Search'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
     });
 
@@ -119,6 +154,8 @@ void main() {
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -133,6 +170,8 @@ void main() {
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -148,6 +187,8 @@ void main() {
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -162,6 +203,8 @@ void main() {
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -181,6 +224,8 @@ void main() {
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -197,6 +242,8 @@ void main() {
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -215,6 +262,8 @@ void main() {
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -230,13 +279,15 @@ void main() {
     });
 
     testWidgets(
-        'IndexedStack keeps both screens mounted — Feed is still in tree after switching to Profile',
+        'IndexedStack keeps all screens mounted — Feed is still in tree after switching to Profile',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -261,6 +312,8 @@ void main() {
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -270,13 +323,15 @@ void main() {
     });
 
     testWidgets(
-        'NavigationBar selectedIndex updates to 1 after tapping Profile',
+        'NavigationBar selectedIndex updates to 2 after tapping Profile',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         _buildSubject(
           authBloc: authBloc,
           postBloc: postBloc,
           profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
         ),
       );
 
@@ -285,7 +340,238 @@ void main() {
 
       final NavigationBar navBar =
           tester.widget<NavigationBar>(find.byType(NavigationBar));
+      // Profile is now index 2 (Feed=0, Search=1, Profile=2).
+      expect(navBar.selectedIndex, 2);
+    });
+
+    testWidgets('tapping Search tab shows SearchScreen prompt',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
+        ),
+      );
+
+      await tester.tap(find.text('Search'));
+      await tester.pump();
+
+      expect(find.text('Search for users by display name'), findsOneWidget);
+    });
+
+    testWidgets(
+        'NavigationBar selectedIndex updates to 1 after tapping Search',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          authBloc: authBloc,
+          postBloc: postBloc,
+          profileBloc: profileBloc,
+          searchBloc: searchBloc,
+          followRepository: followRepository,
+        ),
+      );
+
+      await tester.tap(find.text('Search'));
+      await tester.pump();
+
+      final NavigationBar navBar =
+          tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(navBar.selectedIndex, 1);
+    });
+
+    // -------------------------------------------------------------------------
+    // BUG-006 fix — Profile tab re-watches signed-in user's own profile
+    // -------------------------------------------------------------------------
+    //
+    // Root cause: The global ProfileBloc watch was overwritten when viewing
+    // another user's profile. Fix: _onDestinationSelected dispatches
+    // ProfileWatchRequested(uid: currentUser.uid) every time the Profile tab
+    // (index 2) is activated.
+
+    group('BUG-006 fix — Profile tab re-watches own profile', () {
+      const testUid = 'test-user-uid-123';
+      const testUser = UserEntity(
+        uid: testUid,
+        email: 'test@example.com',
+        displayName: 'Test User',
+      );
+
+      testWidgets(
+          'tapping Profile tab when authenticated dispatches '
+          'ProfileWatchRequested(uid: currentUser.uid)',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // Clear interactions recorded during the initial build (ProfileScreen
+        // dispatches ProfileWatchRequested in didChangeDependencies on first
+        // render). We only want to count dispatches from _onDestinationSelected.
+        clearInteractions(profileBloc);
+
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        verify(
+          () => profileBloc.add(const ProfileWatchRequested(uid: testUid)),
+        ).called(1);
+      });
+
+      testWidgets(
+          'tapping Profile tab when not authenticated does NOT dispatch '
+          'ProfileWatchRequested',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(const AuthUnauthenticated());
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // ProfileScreen.didChangeDependencies does not dispatch when auth state
+        // is AuthUnauthenticated (no uid resolved), so no clearInteractions
+        // needed.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        verifyNever(
+          () => profileBloc.add(any(that: isA<ProfileWatchRequested>())),
+        );
+      });
+
+      testWidgets(
+          'switching away and back to Profile tab dispatches '
+          'ProfileWatchRequested again on each activation',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // Clear initial-build dispatches from ProfileScreen.didChangeDependencies.
+        clearInteractions(profileBloc);
+
+        // First Profile tab activation via _onDestinationSelected.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Switch away to Feed (Feed AppBar is now offstage → find.text('Feed')
+        // is unambiguous, matching only the NavigationBar label).
+        await tester.tap(find.text('Feed'));
+        await tester.pump();
+
+        // Second Profile tab activation — _onDestinationSelected dispatches again.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Exactly 2 dispatches: one per Profile tab activation.
+        verify(
+          () => profileBloc.add(const ProfileWatchRequested(uid: testUid)),
+        ).called(2);
+      });
+
+      testWidgets(
+          'tapping Feed tab from Profile does NOT dispatch additional '
+          'ProfileWatchRequested',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // Navigate to Profile tab first so:
+        //   (a) _onDestinationSelected dispatches ProfileWatchRequested, and
+        //   (b) the FeedScreen AppBar goes offstage — making find.text('Feed')
+        //       unambiguous (only the NavigationBar label is onstage).
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Clear all recorded interactions so that the verifyNever below only
+        // checks interactions that happen AFTER this point.
+        clearInteractions(profileBloc);
+
+        // Tap Feed — _onDestinationSelected(0) should NOT dispatch because
+        // index 0 is not the profile tab index.
+        await tester.tap(find.text('Feed'));
+        await tester.pump();
+
+        verifyNever(
+          () => profileBloc.add(any(that: isA<ProfileWatchRequested>())),
+        );
+      });
+
+      testWidgets(
+          'tapping Search tab from Profile does NOT dispatch additional '
+          'ProfileWatchRequested',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+          ),
+        );
+
+        // Navigate to Profile tab first so _onDestinationSelected has fired.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Clear all recorded interactions so that the verifyNever below only
+        // checks interactions that happen AFTER this point.
+        clearInteractions(profileBloc);
+
+        // Tap Search — _onDestinationSelected(1) should NOT dispatch because
+        // index 1 is not the profile tab index.
+        await tester.tap(find.text('Search'));
+        await tester.pump();
+
+        verifyNever(
+          () => profileBloc.add(any(that: isA<ProfileWatchRequested>())),
+        );
+      });
     });
   });
 }

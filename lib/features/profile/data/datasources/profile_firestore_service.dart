@@ -20,6 +20,13 @@ abstract class ProfileFirestoreService {
   /// Returns a stream that emits the raw data map for [uid] on every change,
   /// or `null` if the document does not exist.
   Stream<Map<String, dynamic>?> watchUser(String uid);
+
+  /// Returns raw data maps for users whose displayName starts with [query],
+  /// limited to [limit] results.
+  Future<List<Map<String, dynamic>>> searchUsersByDisplayName({
+    required String query,
+    int limit = 20,
+  });
 }
 
 /// Production implementation backed by [FirebaseFirestore].
@@ -52,5 +59,21 @@ class FirebaseProfileFirestoreService implements ProfileFirestoreService {
         .doc(uid)
         .snapshots()
         .map((snap) => snap.exists ? snap.data() : null);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> searchUsersByDisplayName({
+    required String query,
+    int limit = 20,
+  }) async {
+    final snap = await _firestore
+        .collection('users')
+        .where('displayName', isGreaterThanOrEqualTo: query)
+        .where('displayName', isLessThanOrEqualTo: '$query\uf8ff')
+        .limit(limit)
+        .get();
+    return snap.docs
+        .map((doc) => doc.data())
+        .toList();
   }
 }
