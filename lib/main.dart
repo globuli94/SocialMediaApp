@@ -122,7 +122,6 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
       providers: [
         RepositoryProvider<ProfileRepository>.value(value: _profileRepository),
         RepositoryProvider<FollowRepository>.value(value: _followRepository),
-        RepositoryProvider<PostRepository>.value(value: _postRepository),
       ],
       child: MultiBlocProvider(
         providers: [

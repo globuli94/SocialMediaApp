@@ -3,7 +3,6 @@
 // FollowRepositoryImpl — Firestore-backed implementation of FollowRepository.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:social_network/features/follow/domain/entities/follow_user_entity.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 
 /// Concrete implementation of [FollowRepository] backed by [FirebaseFirestore].
@@ -111,51 +110,5 @@ class FollowRepositoryImpl implements FollowRepository {
         .doc(followeeId)
         .snapshots()
         .map((s) => s.exists);
-  }
-
-  @override
-  Stream<List<FollowUserEntity>> watchFollowers(String uid) {
-    return _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('followers')
-        .snapshots()
-        .asyncMap((snapshot) async {
-      final futures = snapshot.docs.map((doc) async {
-        final followerUid = doc.data()['followerId'] as String? ?? doc.id;
-        final userDoc =
-            await _firestore.collection('users').doc(followerUid).get();
-        final data = userDoc.data() ?? {};
-        return FollowUserEntity(
-          uid: followerUid,
-          displayName: data['displayName'] as String? ?? '',
-          avatarUrl: data['avatarUrl'] as String?,
-        );
-      });
-      return Future.wait(futures);
-    });
-  }
-
-  @override
-  Stream<List<FollowUserEntity>> watchFollowing(String uid) {
-    return _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('following')
-        .snapshots()
-        .asyncMap((snapshot) async {
-      final futures = snapshot.docs.map((doc) async {
-        final followeeUid = doc.data()['followeeId'] as String? ?? doc.id;
-        final userDoc =
-            await _firestore.collection('users').doc(followeeUid).get();
-        final data = userDoc.data() ?? {};
-        return FollowUserEntity(
-          uid: followeeUid,
-          displayName: data['displayName'] as String? ?? '',
-          avatarUrl: data['avatarUrl'] as String?,
-        );
-      });
-      return Future.wait(futures);
-    });
   }
 }

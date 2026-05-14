@@ -26,7 +26,6 @@ import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
-import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
@@ -54,8 +53,6 @@ class MockSearchBloc extends MockBloc<SearchEvent, SearchState>
 
 class MockFollowRepository extends Mock implements FollowRepository {}
 
-class MockPostRepository extends Mock implements PostRepository {}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -66,13 +63,9 @@ Widget _buildSubject({
   required MockProfileBloc profileBloc,
   required MockSearchBloc searchBloc,
   required MockFollowRepository followRepository,
-  required MockPostRepository postRepository,
 }) {
-  return MultiRepositoryProvider(
-    providers: [
-      RepositoryProvider<FollowRepository>.value(value: followRepository),
-      RepositoryProvider<PostRepository>.value(value: postRepository),
-    ],
+  return RepositoryProvider<FollowRepository>.value(
+    value: followRepository,
     child: MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: authBloc),
@@ -103,7 +96,6 @@ void main() {
   late MockProfileBloc profileBloc;
   late MockSearchBloc searchBloc;
   late MockFollowRepository followRepository;
-  late MockPostRepository postRepository;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -121,9 +113,6 @@ void main() {
     profileBloc = MockProfileBloc();
     searchBloc = MockSearchBloc();
     followRepository = MockFollowRepository();
-    postRepository = MockPostRepository();
-    when(() => postRepository.watchPostsByUser(any()))
-        .thenAnswer((_) => Stream.value([]));
 
     // Default: not authenticated, feed with no posts, profile in initial state.
     when(() => authBloc.state).thenReturn(const AuthInitial());
@@ -148,7 +137,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -168,7 +156,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -185,7 +172,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -203,7 +189,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -220,7 +205,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -242,7 +226,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -261,7 +244,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -282,7 +264,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -307,7 +288,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -334,7 +314,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -353,7 +332,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -375,7 +353,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -395,7 +372,6 @@ void main() {
           profileBloc: profileBloc,
           searchBloc: searchBloc,
           followRepository: followRepository,
-          postRepository: postRepository,
         ),
       );
 
@@ -439,7 +415,6 @@ void main() {
             profileBloc: profileBloc,
             searchBloc: searchBloc,
             followRepository: followRepository,
-            postRepository: postRepository,
           ),
         );
 
@@ -469,7 +444,6 @@ void main() {
             profileBloc: profileBloc,
             searchBloc: searchBloc,
             followRepository: followRepository,
-            postRepository: postRepository,
           ),
         );
 
@@ -499,7 +473,6 @@ void main() {
             profileBloc: profileBloc,
             searchBloc: searchBloc,
             followRepository: followRepository,
-            postRepository: postRepository,
           ),
         );
 
@@ -540,7 +513,6 @@ void main() {
             profileBloc: profileBloc,
             searchBloc: searchBloc,
             followRepository: followRepository,
-            postRepository: postRepository,
           ),
         );
 
@@ -580,7 +552,6 @@ void main() {
             profileBloc: profileBloc,
             searchBloc: searchBloc,
             followRepository: followRepository,
-            postRepository: postRepository,
           ),
         );
 
