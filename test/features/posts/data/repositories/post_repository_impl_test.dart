@@ -91,13 +91,19 @@ void main() {
     registerFallbackValue(SettableMetadata());
   });
 
-  setUp(() {
+  setUp(() async {
     fakeFirestore = FakeFirebaseFirestore();
     mockStorage = MockFirebaseStorage();
     sut = PostRepositoryImpl(
       firestore: fakeFirestore,
       storage: mockStorage,
     );
+    // Seed the default test user so update() calls on users/{uid} don't throw
+    // not-found in fake_cloud_firestore (which mimics real Firestore behaviour).
+    await fakeFirestore
+        .collection('users')
+        .doc('uid-alice')
+        .set({'postCount': 0});
   });
 
   // -------------------------------------------------------------------------
@@ -213,6 +219,26 @@ void main() {
       );
 
       expect(result.authorAvatarUrl, 'https://example.com/alice.jpg');
+    });
+
+    // BUG-008 regression
+    test('increments users/{uid}.postCount by 1', () async {
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-alice')
+          .set({'postCount': 2});
+
+      await sut.createPost(
+        authorUid: 'uid-alice',
+        authorDisplayName: 'Alice',
+        content: 'Count increment test',
+      );
+
+      final userSnap = await fakeFirestore
+          .collection('users')
+          .doc('uid-alice')
+          .get();
+      expect(userSnap.data()?['postCount'], 3);
     });
   });
 
@@ -380,6 +406,46 @@ void main() {
 
       final snap = await fakeFirestore.collection('posts').doc('p-err').get();
       expect(snap.exists, isFalse);
+    });
+
+    // BUG-008 regression
+    test('decrements users/{uid}.postCount by 1 when post exists', () async {
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-count')
+          .set({'postCount': 5});
+      await fakeFirestore.collection('posts').doc('p-decrement').set({
+        'id': 'p-decrement',
+        'authorUid': 'uid-count',
+        'authorDisplayName': 'CountUser',
+        'content': 'To be decremented',
+        'createdAt': Timestamp.now(),
+        'likeCount': 0,
+      });
+
+      await sut.deletePost('p-decrement');
+
+      final userSnap = await fakeFirestore
+          .collection('users')
+          .doc('uid-count')
+          .get();
+      expect(userSnap.data()?['postCount'], 4);
+    });
+
+    test('does not decrement postCount when deleted post does not exist',
+        () async {
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-ghost')
+          .set({'postCount': 7});
+
+      await sut.deletePost('non-existent-post-id');
+
+      final userSnap = await fakeFirestore
+          .collection('users')
+          .doc('uid-ghost')
+          .get();
+      expect(userSnap.data()?['postCount'], 7);
     });
   });
 }
