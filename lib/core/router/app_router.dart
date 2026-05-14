@@ -13,8 +13,6 @@ import 'package:social_network/features/auth/presentation/screens/login_screen.d
 import 'package:social_network/features/auth/presentation/screens/signup_screen.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
-import 'package:social_network/features/follow/presentation/screens/followers_screen.dart';
-import 'package:social_network/features/follow/presentation/screens/following_screen.dart';
 import 'package:social_network/features/posts/presentation/screens/create_post_screen.dart';
 import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
@@ -106,20 +104,6 @@ GoRouter createRouter({required AuthRepository authRepository}) {
             ],
             child: ProfileScreen(uid: state.pathParameters['uid']),
           );
-        },
-      ),
-      GoRoute(
-        path: '/profile/:uid/followers',
-        builder: (BuildContext context, GoRouterState state) {
-          final uid = state.pathParameters['uid']!;
-          return FollowersScreen(uid: uid);
-        },
-      ),
-      GoRoute(
-        path: '/profile/:uid/following',
-        builder: (BuildContext context, GoRouterState state) {
-          final uid = state.pathParameters['uid']!;
-          return FollowingScreen(uid: uid);
         },
       ),
       GoRoute(
