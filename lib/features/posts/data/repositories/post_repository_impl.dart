@@ -110,6 +110,16 @@ class PostRepositoryImpl implements PostRepository {
     }
   }
 
+  @override
+  Stream<List<PostEntity>> watchPostsByUser(String uid) {
+    return _firestore
+        .collection('posts')
+        .where('authorUid', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(_docToEntity).toList());
+  }
+
   PostEntity _docToEntity(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate() ??

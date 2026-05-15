@@ -28,4 +28,7 @@ abstract class PostRepository {
 
   /// Deletes the post with [postId] and its Storage image (if any).
   Future<void> deletePost(String postId);
+
+  /// Emits all posts authored by [uid], ordered by createdAt descending.
+  Stream<List<PostEntity>> watchPostsByUser(String uid);
 }

@@ -13,6 +13,8 @@ import 'package:social_network/features/auth/presentation/screens/login_screen.d
 import 'package:social_network/features/auth/presentation/screens/signup_screen.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
+import 'package:social_network/features/posts/presentation/bloc/user_posts_bloc.dart';
 import 'package:social_network/features/posts/presentation/screens/create_post_screen.dart';
 import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
@@ -99,6 +101,11 @@ GoRouter createRouter({required AuthRepository authRepository}) {
               BlocProvider<FollowBloc>(
                 create: (_) => FollowBloc(
                   followRepository: context.read<FollowRepository>(),
+                ),
+              ),
+              BlocProvider<UserPostsBloc>(
+                create: (_) => UserPostsBloc(
+                  postRepository: context.read<PostRepository>(),
                 ),
               ),
             ],

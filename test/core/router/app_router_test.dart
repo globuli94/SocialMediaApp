@@ -35,7 +35,11 @@ import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
+import 'package:social_network/features/posts/presentation/bloc/user_posts_bloc.dart';
+import 'package:social_network/features/posts/presentation/bloc/user_posts_event.dart';
+import 'package:social_network/features/posts/presentation/bloc/user_posts_state.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
 import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
@@ -69,6 +73,11 @@ class MockFollowRepository extends Mock implements FollowRepository {}
 
 class MockProfileRepository extends Mock implements ProfileRepository {}
 
+class MockPostRepository extends Mock implements PostRepository {}
+
+class MockUserPostsBloc extends MockBloc<UserPostsEvent, UserPostsState>
+    implements UserPostsBloc {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -86,7 +95,9 @@ Widget _buildApp(
   MockProfileBloc profileBloc,
   MockSearchBloc searchBloc,
   MockFollowRepository followRepository,
-  MockProfileRepository profileRepository, {
+  MockProfileRepository profileRepository,
+  MockPostRepository postRepository,
+  MockUserPostsBloc userPostsBloc, {
   GoRouter? router,
 }) {
   final effectiveRouter = router ?? createRouter(authRepository: mockRepo);
@@ -94,6 +105,7 @@ Widget _buildApp(
     providers: [
       RepositoryProvider<FollowRepository>.value(value: followRepository),
       RepositoryProvider<ProfileRepository>.value(value: profileRepository),
+      RepositoryProvider<PostRepository>.value(value: postRepository),
     ],
     child: MultiBlocProvider(
       providers: [
@@ -101,6 +113,7 @@ Widget _buildApp(
         BlocProvider<PostBloc>.value(value: postBloc),
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<SearchBloc>.value(value: searchBloc),
+        BlocProvider<UserPostsBloc>.value(value: userPostsBloc),
       ],
       child: MaterialApp.router(routerConfig: effectiveRouter),
     ),
@@ -119,6 +132,8 @@ void main() {
   late MockSearchBloc searchBloc;
   late MockFollowRepository followRepository;
   late MockProfileRepository profileRepository;
+  late MockPostRepository postRepository;
+  late MockUserPostsBloc userPostsBloc;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -138,6 +153,12 @@ void main() {
     searchBloc = MockSearchBloc();
     followRepository = MockFollowRepository();
     profileRepository = MockProfileRepository();
+    postRepository = MockPostRepository();
+    when(() => postRepository.watchPostsByUser(any()))
+        .thenAnswer((_) => const Stream.empty());
+    userPostsBloc = MockUserPostsBloc();
+    when(() => userPostsBloc.state).thenReturn(const UserPostsInitial());
+    when(() => userPostsBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => mockBloc.state).thenReturn(const AuthInitial());
     when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
@@ -203,6 +224,8 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
+          userPostsBloc,
         ),
       );
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
@@ -389,6 +412,8 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
+          userPostsBloc,
           router: router,
         ),
       );
@@ -424,6 +449,8 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
+          userPostsBloc,
           router: router,
         ),
       );
@@ -472,6 +499,8 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
+          userPostsBloc,
           router: router,
         ),
       );
@@ -516,6 +545,8 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
+          userPostsBloc,
           router: router,
         ),
       );
@@ -566,6 +597,8 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
+          userPostsBloc,
           router: router,
         ),
       );
@@ -608,6 +641,8 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
+          userPostsBloc,
           router: router,
         ),
       );
