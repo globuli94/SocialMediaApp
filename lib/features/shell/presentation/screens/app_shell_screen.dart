@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/feed/presentation/screens/feed_screen.dart';
+import 'package:social_network/features/posts/presentation/bloc/user_posts_bloc.dart';
+import 'package:social_network/features/posts/presentation/bloc/user_posts_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/screens/profile_screen.dart';
@@ -42,6 +44,9 @@ class _AppShellScreenState extends State<AppShellScreen> {
         context
             .read<ProfileBloc>()
             .add(ProfileWatchRequested(uid: authState.user.uid));
+        context
+            .read<UserPostsBloc>()
+            .add(UserPostsWatchStarted(uid: authState.user.uid));
       }
     }
   }
