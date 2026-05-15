@@ -330,6 +330,121 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // watchPostsByUser
+  // -------------------------------------------------------------------------
+
+  group('watchPostsByUser', () {
+    test('returns empty list when user has no posts', () async {
+      final result = await sut.watchPostsByUser('uid-alice').first;
+      expect(result, isEmpty);
+    });
+
+    test('returns only posts authored by the given uid', () async {
+      final ts = Timestamp.fromDate(DateTime(2026, 1, 1));
+      await fakeFirestore.collection('posts').doc('alice-post').set({
+        'id': 'alice-post',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'Alice post',
+        'createdAt': ts,
+        'likeCount': 0,
+      });
+      await fakeFirestore.collection('posts').doc('bob-post').set({
+        'id': 'bob-post',
+        'authorUid': 'uid-bob',
+        'authorDisplayName': 'Bob',
+        'content': 'Bob post',
+        'createdAt': ts,
+        'likeCount': 0,
+      });
+
+      final result = await sut.watchPostsByUser('uid-alice').first;
+
+      expect(result, hasLength(1));
+      expect(result.first.authorUid, 'uid-alice');
+      expect(result.first.id, 'alice-post');
+    });
+
+    test('returns posts ordered by createdAt descending (newest first)',
+        () async {
+      final older = Timestamp.fromDate(DateTime(2026, 1, 1));
+      final newer = Timestamp.fromDate(DateTime(2026, 2, 1));
+
+      await fakeFirestore.collection('posts').doc('alice-old').set({
+        'id': 'alice-old',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'Old post',
+        'createdAt': older,
+        'likeCount': 0,
+      });
+      await fakeFirestore.collection('posts').doc('alice-new').set({
+        'id': 'alice-new',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'content': 'New post',
+        'createdAt': newer,
+        'likeCount': 0,
+      });
+
+      final result = await sut.watchPostsByUser('uid-alice').first;
+
+      expect(result, hasLength(2));
+      expect(result.first.id, 'alice-new');
+      expect(result.last.id, 'alice-old');
+    });
+
+    test('returns multiple posts for same user', () async {
+      final ts1 = Timestamp.fromDate(DateTime(2026, 1, 1));
+      final ts2 = Timestamp.fromDate(DateTime(2026, 1, 2));
+      final ts3 = Timestamp.fromDate(DateTime(2026, 1, 3));
+
+      for (final entry in [
+        ('p1', ts1, 'First'),
+        ('p2', ts2, 'Second'),
+        ('p3', ts3, 'Third'),
+      ]) {
+        await fakeFirestore.collection('posts').doc(entry.$1).set({
+          'id': entry.$1,
+          'authorUid': 'uid-alice',
+          'authorDisplayName': 'Alice',
+          'content': entry.$3,
+          'createdAt': entry.$2,
+          'likeCount': 0,
+        });
+      }
+
+      final result = await sut.watchPostsByUser('uid-alice').first;
+      expect(result, hasLength(3));
+    });
+
+    test('maps PostEntity fields correctly for watchPostsByUser', () async {
+      final ts = Timestamp.fromDate(DateTime(2026, 3, 15));
+      await fakeFirestore.collection('posts').doc('p-user').set({
+        'id': 'p-user',
+        'authorUid': 'uid-alice',
+        'authorDisplayName': 'Alice',
+        'authorAvatarUrl': 'https://example.com/alice.jpg',
+        'content': 'User post content',
+        'createdAt': ts,
+        'likeCount': 0,
+        'imageUrl': 'https://example.com/post-img.jpg',
+      });
+
+      final entities = await sut.watchPostsByUser('uid-alice').first;
+      final entity = entities.single;
+
+      expect(entity.id, 'p-user');
+      expect(entity.authorUid, 'uid-alice');
+      expect(entity.authorDisplayName, 'Alice');
+      expect(entity.authorAvatarUrl, 'https://example.com/alice.jpg');
+      expect(entity.content, 'User post content');
+      expect(entity.createdAt, DateTime(2026, 3, 15));
+      expect(entity.imageUrl, 'https://example.com/post-img.jpg');
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // deletePost
   // -------------------------------------------------------------------------
 
