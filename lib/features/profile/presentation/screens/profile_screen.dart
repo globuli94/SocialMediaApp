@@ -11,10 +11,6 @@ import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
-import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
-import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
-import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
-import 'package:social_network/features/posts/presentation/widgets/post_card.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
@@ -59,11 +55,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context
           .read<ProfileBloc>()
           .add(ProfileWatchRequested(uid: targetUid));
-
-      // Start watching posts by this author.
-      context
-          .read<PostBloc>()
-          .add(PostWatchByAuthorStarted(authorUid: targetUid));
 
       // Start watching follow status when viewing another user's profile.
       if (currentUid != null && targetUid != currentUid) {
@@ -110,78 +101,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ProfileLoaded(:final profile) ||
             ProfileUpdating(:final profile) =>
-              CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 32,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          AvatarWidget(
-                            displayName: profile.displayName,
-                            avatarUrl: profile.avatarUrl,
-                            radius: 56,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            profile.displayName,
-                            style: Theme.of(context).textTheme.headlineSmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          if (profile.bio.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              profile.bio,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _StatChip(
-                                label: 'Posts',
-                                value: profile.postCount,
-                              ),
-                              const SizedBox(width: 32),
-                              _StatChip(
-                                label: 'Followers',
-                                value: profile.followerCount,
-                              ),
-                              const SizedBox(width: 32),
-                              _StatChip(
-                                label: 'Following',
-                                value: profile.followingCount,
-                              ),
-                            ],
-                          ),
-                          if (!isOwnProfile) ...[
-                            const SizedBox(height: 24),
-                            _FollowButton(
-                              currentUid: currentUid ?? _currentUid ?? '',
-                              targetUid: _resolvedUid ?? '',
-                            ),
-                          ],
-                          if (state is ProfileUpdating) ...[
-                            const SizedBox(height: 16),
-                            const CircularProgressIndicator(),
-                          ],
-                          const SizedBox(height: 24),
-                          Text(
-                            'Posts',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
+              SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    AvatarWidget(
+                      displayName: profile.displayName,
+                      avatarUrl: profile.avatarUrl,
+                      radius: 56,
                     ),
-                  ),
-                  _PostsSliver(currentUid: currentUid),
-                ],
+                    const SizedBox(height: 16),
+                    Text(
+                      profile.displayName,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (profile.bio.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        profile.bio,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _StatChip(
+                          label: 'Posts',
+                          value: profile.postCount,
+                        ),
+                        const SizedBox(width: 32),
+                        _StatChip(
+                          label: 'Followers',
+                          value: profile.followerCount,
+                        ),
+                        const SizedBox(width: 32),
+                        _StatChip(
+                          label: 'Following',
+                          value: profile.followingCount,
+                        ),
+                      ],
+                    ),
+                    if (!isOwnProfile) ...[
+                      const SizedBox(height: 24),
+                      _FollowButton(
+                        currentUid: currentUid ?? _currentUid ?? '',
+                        targetUid: _resolvedUid ?? '',
+                      ),
+                    ],
+                    if (state is ProfileUpdating) ...[
+                      const SizedBox(height: 16),
+                      const CircularProgressIndicator(),
+                    ],
+                  ],
+                ),
               ),
             ProfileFailure(:final error) => Center(
                 child: Padding(
@@ -287,74 +266,6 @@ class _StatChip extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
-    );
-  }
-}
-
-/// Sliver that displays posts for the profile.
-class _PostsSliver extends StatelessWidget {
-  const _PostsSliver({required this.currentUid});
-
-  final String? currentUid;
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<PostBloc, PostState>(
-      builder: (context, state) {
-        return switch (state) {
-          PostInitial() || PostLoading() => const SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-            ),
-          PostLoaded(:final posts) => posts.isEmpty
-              ? SliverToBoxAdapter(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Text(
-                        'No posts yet',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                  ),
-                )
-              : SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final post = posts[index];
-                      return PostCard(
-                        post: post,
-                        currentUserUid: currentUid ?? '',
-                      );
-                    },
-                    childCount: posts.length,
-                  ),
-                ),
-          PostFailure(:final error) => SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Error loading posts: $error',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ),
-            ),
-          _ => const SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-            ),
-        };
-      },
     );
   }
 }
