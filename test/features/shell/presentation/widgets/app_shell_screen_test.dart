@@ -114,6 +114,7 @@ void main() {
       const SearchQueryChanged(query: '', currentUid: ''),
     );
     registerFallbackValue(const SearchCleared());
+    registerFallbackValue(const UserPostsWatchStarted(uid: ''));
   });
 
   setUp(() {
@@ -600,6 +601,184 @@ void main() {
 
         verifyNever(
           () => profileBloc.add(any(that: isA<ProfileWatchRequested>())),
+        );
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // BUG-009 fix — Profile tab also dispatches UserPostsWatchStarted
+    // -------------------------------------------------------------------------
+    //
+    // Root cause: _onDestinationSelected dispatched ProfileWatchRequested but
+    // never dispatched UserPostsWatchStarted. On cold start UserPostsBloc
+    // stayed in UserPostsInitial and posts showed nothing.
+    // Fix (commit 93bf898): dispatch both events when profile tab is activated.
+
+    group('BUG-009 fix — Profile tab dispatches UserPostsWatchStarted', () {
+      const testUid = 'test-user-uid-123';
+      const testUser = UserEntity(
+        uid: testUid,
+        email: 'test@example.com',
+        displayName: 'Test User',
+      );
+
+      testWidgets(
+          'tapping Profile tab when authenticated dispatches '
+          'UserPostsWatchStarted(uid: currentUser.uid)',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+            userPostsBloc: userPostsBloc,
+          ),
+        );
+
+        // Clear any interactions recorded during initial build.
+        clearInteractions(userPostsBloc);
+
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        verify(
+          () => userPostsBloc
+              .add(const UserPostsWatchStarted(uid: testUid)),
+        ).called(1);
+      });
+
+      testWidgets(
+          'tapping Profile tab when not authenticated does NOT dispatch '
+          'UserPostsWatchStarted',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(const AuthUnauthenticated());
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+            userPostsBloc: userPostsBloc,
+          ),
+        );
+
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        verifyNever(
+          () => userPostsBloc.add(any(that: isA<UserPostsWatchStarted>())),
+        );
+      });
+
+      testWidgets(
+          'switching away and back to Profile tab dispatches '
+          'UserPostsWatchStarted again on each activation',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+            userPostsBloc: userPostsBloc,
+          ),
+        );
+
+        clearInteractions(userPostsBloc);
+
+        // First Profile tab activation.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        // Switch away to Feed.
+        await tester.tap(find.text('Feed'));
+        await tester.pump();
+
+        // Second Profile tab activation.
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        verify(
+          () => userPostsBloc
+              .add(const UserPostsWatchStarted(uid: testUid)),
+        ).called(2);
+      });
+
+      testWidgets(
+          'tapping Feed tab from Profile does NOT dispatch '
+          'UserPostsWatchStarted',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+            userPostsBloc: userPostsBloc,
+          ),
+        );
+
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        clearInteractions(userPostsBloc);
+
+        // Tapping Feed (index 0) — _onDestinationSelected should not dispatch.
+        await tester.tap(find.text('Feed'));
+        await tester.pump();
+
+        verifyNever(
+          () => userPostsBloc.add(any(that: isA<UserPostsWatchStarted>())),
+        );
+      });
+
+      testWidgets(
+          'tapping Search tab from Profile does NOT dispatch '
+          'UserPostsWatchStarted',
+          (WidgetTester tester) async {
+        when(() => authBloc.state).thenReturn(
+          const AuthAuthenticated(user: testUser),
+        );
+
+        await tester.pumpWidget(
+          _buildSubject(
+            authBloc: authBloc,
+            postBloc: postBloc,
+            profileBloc: profileBloc,
+            searchBloc: searchBloc,
+            followRepository: followRepository,
+            userPostsBloc: userPostsBloc,
+          ),
+        );
+
+        await tester.tap(find.text('Profile'));
+        await tester.pump();
+
+        clearInteractions(userPostsBloc);
+
+        await tester.tap(find.text('Search'));
+        await tester.pump();
+
+        verifyNever(
+          () => userPostsBloc.add(any(that: isA<UserPostsWatchStarted>())),
         );
       });
     });
