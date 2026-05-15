@@ -20,6 +20,16 @@ class PostWatchStarted extends PostEvent {
   const PostWatchStarted();
 }
 
+/// Starts watching posts by a specific author from Firestore.
+class PostWatchByAuthorStarted extends PostEvent {
+  const PostWatchByAuthorStarted({required this.authorUid});
+
+  final String authorUid;
+
+  @override
+  List<Object?> get props => [authorUid];
+}
+
 /// Requests creation of a new post.
 class PostCreateRequested extends PostEvent {
   const PostCreateRequested({
