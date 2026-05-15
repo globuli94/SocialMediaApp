@@ -138,6 +138,80 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // PostWatchByAuthorStarted (FEAT-008)
+  // -------------------------------------------------------------------------
+
+  group('PostWatchByAuthorStarted', () {
+    blocTest<PostBloc, PostState>(
+      'emits [PostLoading, PostLoaded] when stream emits posts for author',
+      setUp: () {
+        when(() => mockRepository.watchPostsByAuthor(any())).thenAnswer(
+          (_) => Stream.value([testPost]),
+        );
+      },
+      build: () => PostBloc(postRepository: mockRepository),
+      act: (bloc) =>
+          bloc.add(const PostWatchByAuthorStarted(authorUid: 'uid-alice')),
+      expect: () => [
+        const PostLoading(),
+        isA<PostLoaded>()
+            .having((s) => s.posts.length, 'posts.length', 1)
+            .having((s) => s.isSubmitting, 'isSubmitting', false),
+      ],
+      verify: (_) =>
+          verify(() => mockRepository.watchPostsByAuthor('uid-alice')).called(1),
+    );
+
+    blocTest<PostBloc, PostState>(
+      'emits [PostLoading, PostLoaded(empty)] when author has no posts',
+      setUp: () {
+        when(() => mockRepository.watchPostsByAuthor(any()))
+            .thenAnswer((_) => Stream.value([]));
+      },
+      build: () => PostBloc(postRepository: mockRepository),
+      act: (bloc) =>
+          bloc.add(const PostWatchByAuthorStarted(authorUid: 'uid-alice')),
+      expect: () => [
+        const PostLoading(),
+        isA<PostLoaded>().having((s) => s.posts, 'posts', isEmpty),
+      ],
+    );
+
+    blocTest<PostBloc, PostState>(
+      'emits [PostLoading, PostFailure] when stream errors',
+      setUp: () {
+        when(() => mockRepository.watchPostsByAuthor(any())).thenAnswer(
+          (_) => Stream.error(Exception('author stream error')),
+        );
+      },
+      build: () => PostBloc(postRepository: mockRepository),
+      act: (bloc) =>
+          bloc.add(const PostWatchByAuthorStarted(authorUid: 'uid-alice')),
+      expect: () => [
+        const PostLoading(),
+        isA<PostFailure>(),
+      ],
+    );
+
+    blocTest<PostBloc, PostState>(
+      'passes authorUid correctly to repository',
+      setUp: () {
+        when(() => mockRepository.watchPostsByAuthor(any()))
+            .thenAnswer((_) => Stream.value([testPost2]));
+      },
+      build: () => PostBloc(postRepository: mockRepository),
+      act: (bloc) =>
+          bloc.add(const PostWatchByAuthorStarted(authorUid: 'uid-bob')),
+      expect: () => [
+        const PostLoading(),
+        isA<PostLoaded>(),
+      ],
+      verify: (_) =>
+          verify(() => mockRepository.watchPostsByAuthor('uid-bob')).called(1),
+    );
+  });
+
+  // -------------------------------------------------------------------------
   // PostsUpdated (internal event)
   // -------------------------------------------------------------------------
 
