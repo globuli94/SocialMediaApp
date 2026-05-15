@@ -7,8 +7,10 @@ import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/feed/presentation/screens/feed_screen.dart';
 import 'package:social_network/features/posts/presentation/bloc/user_posts_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/user_posts_event.dart';
+import 'package:social_network/features/posts/presentation/bloc/user_posts_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
+import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
 import 'package:social_network/features/profile/presentation/screens/profile_screen.dart';
 import 'package:social_network/features/search/presentation/screens/search_screen.dart';
 
@@ -41,12 +43,16 @@ class _AppShellScreenState extends State<AppShellScreen> {
     if (index == _profileTabIndex) {
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated) {
-        context
-            .read<ProfileBloc>()
-            .add(ProfileWatchRequested(uid: authState.user.uid));
-        context
-            .read<UserPostsBloc>()
-            .add(UserPostsWatchStarted(uid: authState.user.uid));
+        if (context.read<ProfileBloc>().state is ProfileInitial) {
+          context
+              .read<ProfileBloc>()
+              .add(ProfileWatchRequested(uid: authState.user.uid));
+        }
+        if (context.read<UserPostsBloc>().state is UserPostsInitial) {
+          context
+              .read<UserPostsBloc>()
+              .add(UserPostsWatchStarted(uid: authState.user.uid));
+        }
       }
     }
   }
