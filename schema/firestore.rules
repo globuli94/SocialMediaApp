@@ -32,10 +32,21 @@ service cloud.firestore {
     // Posts collection
     // Users can read any post; can only write/update posts they authored.
     // authorUid matches the field defined in schema/firebase-schema.md.
+    // Any authenticated user may increment/decrement likeCount only
+    // (written atomically as part of a like/unlike batch write).
     match /posts/{postId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == resource.data.authorUid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.authorUid;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount']);
+
+      // likes subcollection: any authenticated user may read (existence check);
+      // the liker creates/deletes their own entry via batch write.
+      match /likes/{userId} {
+        allow read: if request.auth != null;
+        allow create, delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }
