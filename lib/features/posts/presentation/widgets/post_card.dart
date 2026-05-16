@@ -4,6 +4,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:social_network/features/likes/domain/repositories/like_repository.dart';
+import 'package:social_network/features/likes/presentation/bloc/like_bloc.dart';
 import 'package:social_network/features/likes/presentation/widgets/like_button.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
@@ -43,11 +45,15 @@ class PostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: BlocProvider<LikeBloc>(
+        create: (context) => LikeBloc(
+          likeRepository: context.read<LikeRepository>(),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               children: [
                 GestureDetector(
@@ -120,6 +126,7 @@ class PostCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
         ),
       ),
     );
