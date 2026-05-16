@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:social_network/features/likes/presentation/widgets/like_button.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
@@ -104,6 +105,20 @@ class PostCard extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                LikeButton(
+                  postId: post.id,
+                  currentUserUid: currentUserUid,
+                  onLikeToggleError: (error) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $error')),
+                    );
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),

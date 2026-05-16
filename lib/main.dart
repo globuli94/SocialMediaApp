@@ -32,6 +32,9 @@ import 'package:social_network/features/profile/presentation/bloc/profile_bloc.d
 import 'package:social_network/features/follow/data/repositories/follow_repository_impl.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/likes/data/repositories/like_repository_impl.dart';
+import 'package:social_network/features/likes/domain/repositories/like_repository.dart';
+import 'package:social_network/features/likes/presentation/bloc/like_bloc.dart';
 import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
 import 'package:social_network/firebase_options.dart';
 
@@ -63,10 +66,12 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
   late final ProfileRepository _profileRepository;
   late final PostRepository _postRepository;
   late final FollowRepository _followRepository;
+  late final LikeRepository _likeRepository;
   late final AuthBloc _authBloc;
   late final ProfileBloc _profileBloc;
   late final PostBloc _postBloc;
   late final FollowBloc _followBloc;
+  late final LikeBloc _likeBloc;
   late final SearchBloc _searchBloc;
   late final GoRouter _router;
 
@@ -102,6 +107,10 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
       firestore: FirebaseFirestore.instance,
     );
     _followBloc = FollowBloc(followRepository: _followRepository);
+    _likeRepository = LikeRepositoryImpl(
+      firestore: FirebaseFirestore.instance,
+    );
+    _likeBloc = LikeBloc(likeRepository: _likeRepository);
     _searchBloc = SearchBloc(profileRepository: _profileRepository);
     _router = createRouter(authRepository: _authRepository);
   }
@@ -112,6 +121,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     _profileBloc.close();
     _postBloc.close();
     _followBloc.close();
+    _likeBloc.close();
     _searchBloc.close();
     super.dispose();
   }
@@ -122,6 +132,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
       providers: [
         RepositoryProvider<ProfileRepository>.value(value: _profileRepository),
         RepositoryProvider<FollowRepository>.value(value: _followRepository),
+        RepositoryProvider<LikeRepository>.value(value: _likeRepository),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -129,6 +140,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
           BlocProvider<ProfileBloc>.value(value: _profileBloc),
           BlocProvider<PostBloc>.value(value: _postBloc),
           BlocProvider<FollowBloc>.value(value: _followBloc),
+          BlocProvider<LikeBloc>.value(value: _likeBloc),
           BlocProvider<SearchBloc>.value(value: _searchBloc),
         ],
         child: MaterialApp.router(
