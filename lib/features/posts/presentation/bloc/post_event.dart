@@ -20,6 +20,16 @@ class PostWatchStarted extends PostEvent {
   const PostWatchStarted();
 }
 
+/// Starts watching posts by a specific author.
+class PostsWatchByAuthorRequested extends PostEvent {
+  const PostsWatchByAuthorRequested({required this.authorUid});
+
+  final String authorUid;
+
+  @override
+  List<Object?> get props => [authorUid];
+}
+
 /// Requests creation of a new post.
 class PostCreateRequested extends PostEvent {
   const PostCreateRequested({

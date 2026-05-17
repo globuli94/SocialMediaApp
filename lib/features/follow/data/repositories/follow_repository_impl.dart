@@ -3,6 +3,7 @@
 // FollowRepositoryImpl — Firestore-backed implementation of FollowRepository.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:social_network/features/follow/domain/entities/user_follow_entity.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 
 /// Concrete implementation of [FollowRepository] backed by [FirebaseFirestore].
@@ -110,5 +111,67 @@ class FollowRepositoryImpl implements FollowRepository {
         .doc(followeeId)
         .snapshots()
         .map((s) => s.exists);
+  }
+
+  @override
+  Stream<List<UserFollowEntity>> watchFollowers(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('followers')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .asyncMap((snapshot) async {
+      final followers = <UserFollowEntity>[];
+      for (final doc in snapshot.docs) {
+        final followerId = doc['followerId'] as String?;
+        if (followerId != null) {
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(followerId)
+              .get();
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            followers.add(UserFollowEntity(
+              uid: followerId,
+              displayName: data?['displayName'] as String? ?? '',
+              avatarUrl: data?['avatarUrl'] as String?,
+            ));
+          }
+        }
+      }
+      return followers;
+    });
+  }
+
+  @override
+  Stream<List<UserFollowEntity>> watchFollowing(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('following')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .asyncMap((snapshot) async {
+      final following = <UserFollowEntity>[];
+      for (final doc in snapshot.docs) {
+        final followeeId = doc['followeeId'] as String?;
+        if (followeeId != null) {
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(followeeId)
+              .get();
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            following.add(UserFollowEntity(
+              uid: followeeId,
+              displayName: data?['displayName'] as String? ?? '',
+              avatarUrl: data?['avatarUrl'] as String?,
+            ));
+          }
+        }
+      }
+      return following;
+    });
   }
 }

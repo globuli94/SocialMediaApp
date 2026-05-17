@@ -11,6 +11,9 @@ import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
@@ -55,6 +58,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context
           .read<ProfileBloc>()
           .add(ProfileWatchRequested(uid: targetUid));
+
+      // Watch posts by the user.
+      context
+          .read<PostBloc>()
+          .add(PostsWatchByAuthorRequested(authorUid: targetUid));
 
       // Start watching follow status when viewing another user's profile.
       if (currentUid != null && targetUid != currentUid) {
@@ -101,66 +109,163 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ProfileLoaded(:final profile) ||
             ProfileUpdating(:final profile) =>
-              SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 32,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    AvatarWidget(
-                      displayName: profile.displayName,
-                      avatarUrl: profile.avatarUrl,
-                      radius: 56,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      profile.displayName,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      textAlign: TextAlign.center,
-                    ),
-                    if (profile.bio.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        profile.bio,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
+              CustomScrollView(
+                slivers: [
+                  SliverAppBar(
+                    pinned: false,
+                    floating: true,
+                    expandedHeight: 0,
+                    flexibleSpace: FlexibleSpaceBar(
+                      title: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 32,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            AvatarWidget(
+                              displayName: profile.displayName,
+                              avatarUrl: profile.avatarUrl,
+                              radius: 56,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              profile.displayName,
+                              style: Theme.of(context).textTheme.headlineSmall,
+                              textAlign: TextAlign.center,
+                            ),
+                            if (profile.bio.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                profile.bio,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _StatChip(
+                                  label: 'Posts',
+                                  value: profile.postCount,
+                                  onTap: () {},
+                                ),
+                                const SizedBox(width: 32),
+                                _StatChip(
+                                  label: 'Followers',
+                                  value: profile.followerCount,
+                                  onTap: () {
+                                    context.push(
+                                      '/profile/$_resolvedUid/followers',
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 32),
+                                _StatChip(
+                                  label: 'Following',
+                                  value: profile.followingCount,
+                                  onTap: () {
+                                    context.push(
+                                      '/profile/$_resolvedUid/following',
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            if (!isOwnProfile) ...[
+                              const SizedBox(height: 24),
+                              _FollowButton(
+                                currentUid: currentUid ?? _currentUid ?? '',
+                                targetUid: _resolvedUid ?? '',
+                              ),
+                            ],
+                            if (state is ProfileUpdating) ...[
+                              const SizedBox(height: 16),
+                              const CircularProgressIndicator(),
+                            ],
+                          ],
+                        ),
                       ),
-                    ],
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _StatChip(
-                          label: 'Posts',
-                          value: profile.postCount,
-                        ),
-                        const SizedBox(width: 32),
-                        _StatChip(
-                          label: 'Followers',
-                          value: profile.followerCount,
-                        ),
-                        const SizedBox(width: 32),
-                        _StatChip(
-                          label: 'Following',
-                          value: profile.followingCount,
-                        ),
-                      ],
                     ),
-                    if (!isOwnProfile) ...[
-                      const SizedBox(height: 24),
-                      _FollowButton(
-                        currentUid: currentUid ?? _currentUid ?? '',
-                        targetUid: _resolvedUid ?? '',
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Posts',
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                    ],
-                    if (state is ProfileUpdating) ...[
-                      const SizedBox(height: 16),
-                      const CircularProgressIndicator(),
-                    ],
-                  ],
-                ),
+                    ),
+                  ),
+                  BlocBuilder<PostBloc, PostState>(
+                    builder: (context, postState) {
+                      return switch (postState) {
+                        PostInitial() => const SliverFillRemaining(
+                            child: Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        PostLoading() => const SliverFillRemaining(
+                            child: Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        PostLoaded(:final posts) => posts.isEmpty
+                            ? const SliverFillRemaining(
+                                child: Center(
+                                  child: Text('No posts yet.'),
+                                ),
+                              )
+                            : SliverGrid(
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  childAspectRatio: 1,
+                                ),
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    final post = posts[index];
+                                    return Container(
+                                      color: Colors.grey[300],
+                                      child: post.imageUrl != null
+                                          ? Image.network(
+                                              post.imageUrl!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Center(
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                child: Text(
+                                                  post.content,
+                                                  maxLines: 3,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            ),
+                                    );
+                                  },
+                                  childCount: posts.length,
+                                ),
+                              ),
+                        PostFailure(:final error) => SliverFillRemaining(
+                            child: Center(
+                              child: Text('Error: $error'),
+                            ),
+                          ),
+                        _ => const SliverFillRemaining(
+                            child: Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                      };
+                    },
+                  ),
+                ],
               ),
             ProfileFailure(:final error) => Center(
                 child: Padding(
@@ -244,7 +349,11 @@ class _FollowButton extends StatelessWidget {
 
 /// Small chip that displays a stat label and numeric value.
 class _StatChip extends StatelessWidget {
-  const _StatChip({required this.label, required this.value});
+  const _StatChip({
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   /// Label shown below the numeric value.
   final String label;
@@ -252,20 +361,26 @@ class _StatChip extends StatelessWidget {
   /// Numeric count to display.
   final int value;
 
+  /// Optional callback when tapped.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '$value',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$value',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
     );
   }
 }
