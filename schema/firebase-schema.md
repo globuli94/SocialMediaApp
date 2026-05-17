@@ -59,6 +59,15 @@ Stores posts created by users and displayed in the feed.
 | likeCount | number | yes | Cached count of likes — default 0 |
 | imageUrl | string | no | URL to post image in Firebase Storage; null/absent if text-only post |
 
+### Subcollection: posts/{postId}/likes
+
+Tracks which users have liked a post. Written atomically alongside the `likeCount` increment/decrement on the parent post document via a Firestore batch write. Document ID equals the liker's UID.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| userId | string | yes | UID of the user who liked the post — matches the document ID |
+| createdAt | timestamp | yes | Time the like was recorded |
+
 ---
 
 > *Additional collections will be defined here as features are added.
