@@ -81,9 +81,6 @@ class _FollowersScreenState extends State<FollowersScreen> {
                   ),
                 ),
               ),
-            _ => const Center(
-                child: CircularProgressIndicator(),
-              ),
           };
         },
       ),

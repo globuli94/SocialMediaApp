@@ -6,7 +6,7 @@ import 'package:equatable/equatable.dart';
 import 'package:social_network/features/follow/domain/entities/user_follow_entity.dart';
 
 /// Base state for [FollowListBloc].
-abstract class FollowListState extends Equatable {
+sealed class FollowListState extends Equatable {
   const FollowListState();
 
   @override
