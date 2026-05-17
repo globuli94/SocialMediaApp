@@ -15,6 +15,10 @@ abstract class PostRepository {
   /// Ordered by createdAt descending.
   Stream<List<PostEntity>> watchPosts();
 
+  /// Emits all posts authored by [authorUid] on every Firestore change.
+  /// Ordered by createdAt descending.
+  Stream<List<PostEntity>> watchPostsByAuthor(String authorUid);
+
   /// Creates a new post. Uploads [imageBytes] to Storage first when provided.
   /// Returns the created [PostEntity].
   Future<PostEntity> createPost({
