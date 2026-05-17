@@ -122,6 +122,49 @@ class PostRepositoryImpl implements PostRepository {
       createdAt: createdAt,
       authorAvatarUrl: data['authorAvatarUrl'] as String?,
       imageUrl: data['imageUrl'] as String?,
+      likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  @override
+  Future<void> likePost(String postId, String userId) async {
+    final batch = _firestore.batch();
+    final postRef = _firestore.collection('posts').doc(postId);
+    final likeRef = postRef.collection('likes').doc(userId);
+
+    batch.update(postRef, {
+      'likeCount': FieldValue.increment(1),
+    });
+    batch.set(likeRef, {
+      'userId': userId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+  }
+
+  @override
+  Future<void> unlikePost(String postId, String userId) async {
+    final batch = _firestore.batch();
+    final postRef = _firestore.collection('posts').doc(postId);
+    final likeRef = postRef.collection('likes').doc(userId);
+
+    batch.update(postRef, {
+      'likeCount': FieldValue.increment(-1),
+    });
+    batch.delete(likeRef);
+
+    await batch.commit();
+  }
+
+  @override
+  Stream<bool> watchPostLiked(String postId, String userId) {
+    return _firestore
+        .collection('posts')
+        .doc(postId)
+        .collection('likes')
+        .doc(userId)
+        .snapshots()
+        .map((snapshot) => snapshot.exists);
   }
 }

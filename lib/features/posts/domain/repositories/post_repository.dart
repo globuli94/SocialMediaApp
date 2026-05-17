@@ -28,4 +28,16 @@ abstract class PostRepository {
 
   /// Deletes the post with [postId] and its Storage image (if any).
   Future<void> deletePost(String postId);
+
+  /// Adds a like from [userId] to the post with [postId].
+  /// Atomically increments the post's likeCount and creates a like document.
+  Future<void> likePost(String postId, String userId);
+
+  /// Removes the like from [userId] on the post with [postId].
+  /// Atomically decrements the post's likeCount and deletes the like document.
+  Future<void> unlikePost(String postId, String userId);
+
+  /// Emits true if [userId] has liked the post with [postId], false otherwise.
+  /// Updates on every like/unlike change.
+  Stream<bool> watchPostLiked(String postId, String userId);
 }
