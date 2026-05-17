@@ -26,12 +26,14 @@ class LikeLoading extends LikeState {
 class LikeUpdated extends LikeState {
   const LikeUpdated({
     required this.isLiked,
+    this.likeCount = 0,
   });
 
   final bool isLiked;
+  final int likeCount;
 
   @override
-  List<Object?> get props => [isLiked];
+  List<Object?> get props => [isLiked, likeCount];
 }
 
 /// Error occurred during like/unlike operation.

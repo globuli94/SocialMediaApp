@@ -41,6 +41,7 @@ class _LikeButtonState extends State<LikeButton> {
     _likeBloc.add(LikeFetched(
       postId: widget.postId,
       userId: widget.currentUserUid,
+      initialLikeCount: widget.likeCount,
     ));
   }
 
@@ -57,6 +58,7 @@ class _LikeButtonState extends State<LikeButton> {
       child: BlocBuilder<LikeBloc, LikeState>(
         builder: (context, state) {
           final isLiked = state is LikeUpdated && state.isLiked;
+          final likeCount = state is LikeUpdated ? state.likeCount : widget.likeCount;
 
           return Row(
             children: [
@@ -71,12 +73,13 @@ class _LikeButtonState extends State<LikeButton> {
                       postId: widget.postId,
                       userId: widget.currentUserUid,
                       isLiked: isLiked,
+                      currentLikeCount: likeCount,
                     ),
                   );
                 },
               ),
               Text(
-                widget.likeCount.toString(),
+                likeCount.toString(),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

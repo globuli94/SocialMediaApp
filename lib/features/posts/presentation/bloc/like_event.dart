@@ -17,13 +17,15 @@ class LikeFetched extends LikeEvent {
   const LikeFetched({
     required this.postId,
     required this.userId,
+    this.initialLikeCount = 0,
   });
 
   final String postId;
   final String userId;
+  final int initialLikeCount;
 
   @override
-  List<Object?> get props => [postId, userId];
+  List<Object?> get props => [postId, userId, initialLikeCount];
 }
 
 /// Toggles the like state (like if not liked, unlike if liked).
@@ -32,12 +34,14 @@ class LikeToggled extends LikeEvent {
     required this.postId,
     required this.userId,
     required this.isLiked,
+    this.currentLikeCount = 0,
   });
 
   final String postId;
   final String userId;
   final bool isLiked;
+  final int currentLikeCount;
 
   @override
-  List<Object?> get props => [postId, userId, isLiked];
+  List<Object?> get props => [postId, userId, isLiked, currentLikeCount];
 }

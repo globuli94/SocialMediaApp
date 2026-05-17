@@ -22,6 +22,7 @@ class LikeBloc extends Bloc<LikeEvent, LikeState> {
   }
 
   final PostRepository _postRepository;
+  int _currentLikeCount = 0;
 
   /// Fetches and streams the initial like state.
   Future<void> _onLikeFetched(
@@ -30,9 +31,14 @@ class LikeBloc extends Bloc<LikeEvent, LikeState> {
   ) async {
     emit(const LikeLoading());
     try {
+      _currentLikeCount = event.initialLikeCount;
+
       await emit.forEach<bool>(
         _postRepository.watchPostLiked(event.postId, event.userId),
-        onData: (isLiked) => LikeUpdated(isLiked: isLiked),
+        onData: (isLiked) => LikeUpdated(
+          isLiked: isLiked,
+          likeCount: _currentLikeCount,
+        ),
         onError: (error, stackTrace) => LikeError(
           message: error.toString(),
         ),
@@ -47,17 +53,28 @@ class LikeBloc extends Bloc<LikeEvent, LikeState> {
     LikeToggled event,
     Emitter<LikeState> emit,
   ) async {
-    emit(const LikeLoading());
     try {
+      // Emit optimistic state immediately
+      final newLikeCount = event.isLiked
+          ? _currentLikeCount - 1
+          : _currentLikeCount + 1;
+      _currentLikeCount = newLikeCount;
+      emit(LikeUpdated(
+        isLiked: !event.isLiked,
+        likeCount: newLikeCount,
+      ));
+
+      // Perform the Firestore operation
       if (event.isLiked) {
         await _postRepository.unlikePost(event.postId, event.userId);
       } else {
         await _postRepository.likePost(event.postId, event.userId);
       }
-      // State will update via the stream watcher in _onLikeFetched
+      // Stream will update via the watchPostLiked listener in _onLikeFetched
     } catch (e) {
       emit(LikeError(message: e.toString()));
-      // Re-emit the previous state after error
+      // Revert optimistic update on error
+      _currentLikeCount = event.currentLikeCount;
       rethrow;
     }
   }
