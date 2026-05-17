@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
@@ -21,6 +22,8 @@ import 'package:social_network/features/posts/presentation/widgets/post_card.dar
 // ---------------------------------------------------------------------------
 
 class MockPostBloc extends MockBloc<PostEvent, PostState> implements PostBloc {}
+
+class MockPostRepository extends Mock implements PostRepository {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -75,6 +78,7 @@ final PostEntity _oldPost = PostEntity(
 /// exposes the card route. Sufficient for tests that do NOT tap the author row.
 Widget _buildSubject({
   required MockPostBloc postBloc,
+  required MockPostRepository postRepository,
   required PostEntity post,
   required String currentUserUid,
 }) {
@@ -99,9 +103,12 @@ Widget _buildSubject({
     ],
   );
 
-  return BlocProvider<PostBloc>.value(
-    value: postBloc,
-    child: MaterialApp.router(routerConfig: router),
+  return RepositoryProvider<PostRepository>.value(
+    value: postRepository,
+    child: BlocProvider<PostBloc>.value(
+      value: postBloc,
+      child: MaterialApp.router(routerConfig: router),
+    ),
   );
 }
 
@@ -111,6 +118,7 @@ Widget _buildSubject({
 
 void main() {
   late MockPostBloc postBloc;
+  late MockPostRepository postRepository;
 
   setUpAll(() {
     registerFallbackValue(const PostDeleteRequested(postId: ''));
@@ -118,9 +126,12 @@ void main() {
 
   setUp(() {
     postBloc = MockPostBloc();
+    postRepository = MockPostRepository();
     when(() => postBloc.state)
         .thenReturn(PostLoaded(posts: [_ownPost, _otherPost]));
     when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
+    when(() => postRepository.watchPostLiked(any(), any()))
+        .thenAnswer((_) => Stream.value(false));
   });
 
   // -------------------------------------------------------------------------
@@ -132,6 +143,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _ownPost,
           currentUserUid: 'uid-me',
         ),
@@ -150,6 +162,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _ownPost,
           currentUserUid: 'uid-me',
         ),
@@ -169,6 +182,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _ownPost, // 5 minutes ago
           currentUserUid: 'uid-me',
         ),
@@ -182,6 +196,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _otherPost, // 2 hours ago
           currentUserUid: 'uid-me',
         ),
@@ -194,6 +209,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _oldPost, // 3 days ago
           currentUserUid: 'uid-me',
         ),
@@ -213,6 +229,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _ownPost,
           currentUserUid: 'uid-me',
         ),
@@ -226,6 +243,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _otherPost,
           currentUserUid: 'uid-me',
         ),
@@ -238,6 +256,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _ownPost,
           currentUserUid: 'uid-me',
         ),
@@ -262,6 +281,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _ownPost,
           currentUserUid: 'uid-me',
         ),
@@ -287,6 +307,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _postWithImage,
           currentUserUid: 'uid-me',
         ),
@@ -317,6 +338,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _ownPost,
           currentUserUid: 'uid-me',
         ),
@@ -343,6 +365,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _otherPost,
           currentUserUid: 'uid-me',
         ),
@@ -358,6 +381,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _otherPost,
           currentUserUid: 'uid-me',
         ),
@@ -378,6 +402,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           postBloc: postBloc,
+          postRepository: postRepository,
           post: _ownPost,
           currentUserUid: 'uid-me',
         ),

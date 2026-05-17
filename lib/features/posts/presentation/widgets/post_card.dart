@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
+import 'package:social_network/features/posts/presentation/widgets/like_button.dart';
 import 'package:social_network/features/profile/presentation/widgets/avatar_widget.dart';
 
 /// Card widget that renders a single [PostEntity] in the feed.
@@ -104,6 +105,12 @@ class PostCard extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
+            LikeButton(
+              postId: post.id,
+              likeCount: post.likeCount,
+              currentUserUid: currentUserUid,
+            ),
           ],
         ),
       ),

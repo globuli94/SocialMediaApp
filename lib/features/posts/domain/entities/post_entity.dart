@@ -12,6 +12,7 @@ class PostEntity {
     required this.createdAt,
     this.authorAvatarUrl,
     this.imageUrl,
+    this.likeCount = 0,
   });
 
   final String id;
@@ -21,4 +22,5 @@ class PostEntity {
   final DateTime createdAt;
   final String? authorAvatarUrl;
   final String? imageUrl;
+  final int likeCount;
 }

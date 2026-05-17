@@ -20,6 +20,7 @@ import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/feed/presentation/screens/feed_screen.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
@@ -31,6 +32,8 @@ import 'package:social_network/features/posts/presentation/bloc/post_state.dart'
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 class MockPostBloc extends MockBloc<PostEvent, PostState> implements PostBloc {}
+
+class MockPostRepository extends Mock implements PostRepository {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -57,14 +60,18 @@ PostEntity _makePost(String id, {String content = ''}) => PostEntity(
 Widget _buildSubject({
   required MockAuthBloc authBloc,
   required MockPostBloc postBloc,
+  required MockPostRepository postRepository,
 }) {
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider<AuthBloc>.value(value: authBloc),
-      BlocProvider<PostBloc>.value(value: postBloc),
-    ],
-    child: const MaterialApp(
-      home: FeedScreen(),
+  return RepositoryProvider<PostRepository>.value(
+    value: postRepository,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: authBloc),
+        BlocProvider<PostBloc>.value(value: postBloc),
+      ],
+      child: const MaterialApp(
+        home: FeedScreen(),
+      ),
     ),
   );
 }
@@ -76,6 +83,7 @@ Widget _buildSubject({
 void main() {
   late MockAuthBloc authBloc;
   late MockPostBloc postBloc;
+  late MockPostRepository postRepository;
 
   setUpAll(() {
     registerFallbackValue(const PostWatchStarted());
@@ -85,10 +93,13 @@ void main() {
   setUp(() {
     authBloc = MockAuthBloc();
     postBloc = MockPostBloc();
+    postRepository = MockPostRepository();
     when(() => authBloc.state)
         .thenReturn(const AuthAuthenticated(user: _testUser));
     when(() => authBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => postBloc.stream).thenAnswer((_) => const Stream.empty());
+    when(() => postRepository.watchPostLiked(any(), any()))
+        .thenAnswer((_) => Stream.value(false));
   });
 
   // -------------------------------------------------------------------------
@@ -101,7 +112,7 @@ void main() {
       when(() => postBloc.state).thenReturn(const PostLoading());
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -118,7 +129,7 @@ void main() {
       when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       expect(find.text('No posts yet.'), findsOneWidget);
@@ -128,7 +139,7 @@ void main() {
       when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       expect(find.byType(RefreshIndicator), findsOneWidget);
@@ -139,7 +150,7 @@ void main() {
       when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -156,7 +167,7 @@ void main() {
       when(() => postBloc.state).thenReturn(PostLoaded(posts: posts));
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       expect(find.text('Post content p1'), findsOneWidget);
@@ -168,7 +179,7 @@ void main() {
       when(() => postBloc.state).thenReturn(PostLoaded(posts: posts));
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       expect(find.byType(RefreshIndicator), findsOneWidget);
@@ -185,7 +196,7 @@ void main() {
           .thenReturn(const PostFailure(error: 'Something went wrong'));
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       expect(find.text('Something went wrong'), findsOneWidget);
@@ -201,7 +212,7 @@ void main() {
       when(() => postBloc.state).thenReturn(const PostInitial());
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       expect(find.text('No posts yet.'), findsNothing);
@@ -226,7 +237,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-          _buildSubject(authBloc: authBloc, postBloc: postBloc));
+          _buildSubject(authBloc: authBloc, postBloc: postBloc, postRepository: postRepository));
       await tester.pump();
 
       final refreshState = tester.state<RefreshIndicatorState>(
@@ -274,12 +285,15 @@ void main() {
         ],
       );
 
-      return MultiBlocProvider(
-        providers: [
-          BlocProvider<AuthBloc>.value(value: authBloc),
-          BlocProvider<PostBloc>.value(value: postBloc),
-        ],
-        child: MaterialApp.router(routerConfig: router),
+      return RepositoryProvider<PostRepository>.value(
+        value: postRepository,
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider<AuthBloc>.value(value: authBloc),
+            BlocProvider<PostBloc>.value(value: postBloc),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
       );
     }
 

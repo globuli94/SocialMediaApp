@@ -120,6 +120,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
   Widget build(BuildContext context) {
     return MultiRepositoryProvider(
       providers: [
+        RepositoryProvider<PostRepository>.value(value: _postRepository),
         RepositoryProvider<ProfileRepository>.value(value: _profileRepository),
         RepositoryProvider<FollowRepository>.value(value: _followRepository),
       ],
