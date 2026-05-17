@@ -131,7 +131,7 @@ void main() {
 
   group('LikeToggled (like — AC2)', () {
     blocTest<LikeBloc, LikeState>(
-      'calls likePost and emits LikeLoading when tapping to like',
+      'calls likePost and emits optimistic LikeUpdated(isLiked=true) when tapping to like',
       setUp: () {
         when(() => mockRepository.likePost('post-like', 'uid-me'))
             .thenAnswer((_) async {});
@@ -142,7 +142,11 @@ void main() {
         userId: 'uid-me',
         isLiked: false,
       )),
-      expect: () => [const LikeLoading()],
+      expect: () => [
+        isA<LikeUpdated>()
+            .having((s) => s.isLiked, 'isLiked', true)
+            .having((s) => s.likeCount, 'likeCount', 1),
+      ],
       verify: (_) =>
           verify(() => mockRepository.likePost('post-like', 'uid-me')).called(1),
     );
@@ -159,14 +163,14 @@ void main() {
         userId: 'uid-me',
         isLiked: false,
       )),
-      expect: () => [const LikeLoading(), isA<LikeError>()],
+      expect: () => [isA<LikeUpdated>(), isA<LikeError>()],
       errors: () => [isA<Exception>()],
     );
   });
 
   group('LikeToggled (unlike — AC3)', () {
     blocTest<LikeBloc, LikeState>(
-      'calls unlikePost and emits LikeLoading when tapping to unlike',
+      'calls unlikePost and emits optimistic LikeUpdated(isLiked=false) when tapping to unlike',
       setUp: () {
         when(() => mockRepository.unlikePost('post-unlike', 'uid-me'))
             .thenAnswer((_) async {});
@@ -177,7 +181,9 @@ void main() {
         userId: 'uid-me',
         isLiked: true,
       )),
-      expect: () => [const LikeLoading()],
+      expect: () => [
+        isA<LikeUpdated>().having((s) => s.isLiked, 'isLiked', false),
+      ],
       verify: (_) => verify(
         () => mockRepository.unlikePost('post-unlike', 'uid-me'),
       ).called(1),
@@ -195,7 +201,7 @@ void main() {
         userId: 'uid-me',
         isLiked: true,
       )),
-      expect: () => [const LikeLoading(), isA<LikeError>()],
+      expect: () => [isA<LikeUpdated>(), isA<LikeError>()],
       errors: () => [isA<Exception>()],
     );
   });
@@ -256,9 +262,9 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('LikeEvent props and equality', () {
-    test('LikeFetched props contains postId and userId', () {
+    test('LikeFetched props contains postId, userId, and initialLikeCount', () {
       const event = LikeFetched(postId: 'p1', userId: 'u1');
-      expect(event.props, equals(['p1', 'u1']));
+      expect(event.props, equals(['p1', 'u1', 0]));
     });
 
     test('LikeFetched supports value equality', () {
@@ -267,9 +273,9 @@ void main() {
       expect(a, equals(b));
     });
 
-    test('LikeToggled props contains postId, userId, and isLiked', () {
+    test('LikeToggled props contains postId, userId, isLiked, and currentLikeCount', () {
       const event = LikeToggled(postId: 'p1', userId: 'u1', isLiked: true);
-      expect(event.props, equals(['p1', 'u1', true]));
+      expect(event.props, equals(['p1', 'u1', true, 0]));
     });
 
     test('LikeToggled supports value equality', () {
@@ -292,14 +298,14 @@ void main() {
       expect(const LikeLoading().props, isEmpty);
     });
 
-    test('LikeUpdated props contains isLiked', () {
-      const state = LikeUpdated(isLiked: true);
-      expect(state.props, equals([true]));
+    test('LikeUpdated props contains isLiked and likeCount', () {
+      const state = LikeUpdated(isLiked: true, likeCount: 3);
+      expect(state.props, equals([true, 3]));
     });
 
     test('LikeUpdated supports value equality', () {
-      const a = LikeUpdated(isLiked: false);
-      const b = LikeUpdated(isLiked: false);
+      const a = LikeUpdated(isLiked: false, likeCount: 0);
+      const b = LikeUpdated(isLiked: false, likeCount: 0);
       expect(a, equals(b));
     });
 
