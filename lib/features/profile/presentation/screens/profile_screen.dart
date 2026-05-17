@@ -257,11 +257,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: Text('Error: $error'),
                             ),
                           ),
-                        _ => const SliverFillRemaining(
-                            child: Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
                       };
                     },
                   ),

@@ -6,7 +6,7 @@ import 'package:equatable/equatable.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 
 /// Base class for all post states.
-abstract class PostState extends Equatable {
+sealed class PostState extends Equatable {
   const PostState();
 
   @override
