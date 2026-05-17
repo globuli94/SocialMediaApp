@@ -5,6 +5,7 @@
 //
 // Uses fake_cloud_firestore so no real Firebase instance is required.
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:social_network/features/follow/data/repositories/follow_repository_impl.dart';
@@ -188,6 +189,126 @@ void main() {
       final snap =
           await fakeFirestore.collection('users').doc('uid-b').get();
       expect(snap.data()?['followerCount'], equals(6));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // watchFollowers
+  // ---------------------------------------------------------------------------
+
+  group('watchFollowers()', () {
+    test('emits empty list when the followers subcollection is empty',
+        () async {
+      final stream = sut.watchFollowers('uid-me');
+      expect(await stream.first, isEmpty);
+    });
+
+    test('emits list of user profiles for each follower', () async {
+      // Seed the follower user doc.
+      await fakeFirestore.collection('users').doc('uid-alice').set({
+        'displayName': 'Alice',
+        'bio': 'Bio',
+        'avatarUrl': null,
+        'postCount': 0,
+        'followerCount': 1,
+        'followingCount': 0,
+      });
+
+      // Seed the followers subcollection under uid-me.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-me')
+          .collection('followers')
+          .doc('uid-alice')
+          .set({
+        'followerId': 'uid-alice',
+        'createdAt': Timestamp.fromDate(DateTime(2024)),
+      });
+
+      final stream = sut.watchFollowers('uid-me');
+      final users = await stream.first;
+
+      expect(users.length, equals(1));
+      expect(users.first.uid, equals('uid-alice'));
+      expect(users.first.displayName, equals('Alice'));
+    });
+
+    test('excludes follower entries whose user doc does not exist', () async {
+      // Seed the followers subcollection but NOT the user doc.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-me')
+          .collection('followers')
+          .doc('uid-ghost')
+          .set({
+        'followerId': 'uid-ghost',
+        'createdAt': Timestamp.fromDate(DateTime(2024)),
+      });
+
+      final stream = sut.watchFollowers('uid-me');
+      final users = await stream.first;
+
+      expect(users, isEmpty);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // watchFollowing
+  // ---------------------------------------------------------------------------
+
+  group('watchFollowing()', () {
+    test('emits empty list when the following subcollection is empty',
+        () async {
+      final stream = sut.watchFollowing('uid-me');
+      expect(await stream.first, isEmpty);
+    });
+
+    test('emits list of user profiles for each followed user', () async {
+      // Seed the followee user doc.
+      await fakeFirestore.collection('users').doc('uid-bob').set({
+        'displayName': 'Bob',
+        'bio': '',
+        'avatarUrl': null,
+        'postCount': 2,
+        'followerCount': 0,
+        'followingCount': 1,
+      });
+
+      // Seed the following subcollection under uid-me.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-me')
+          .collection('following')
+          .doc('uid-bob')
+          .set({
+        'followeeId': 'uid-bob',
+        'createdAt': Timestamp.fromDate(DateTime(2024)),
+      });
+
+      final stream = sut.watchFollowing('uid-me');
+      final users = await stream.first;
+
+      expect(users.length, equals(1));
+      expect(users.first.uid, equals('uid-bob'));
+      expect(users.first.displayName, equals('Bob'));
+    });
+
+    test('excludes following entries whose user doc does not exist', () async {
+      // Seed the following subcollection but NOT the user doc.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-me')
+          .collection('following')
+          .doc('uid-ghost')
+          .set({
+        'followeeId': 'uid-ghost',
+        'createdAt': Timestamp.fromDate(DateTime(2024)),
+      });
+
+      final stream = sut.watchFollowing('uid-me');
+      final users = await stream.first;
+
+      expect(users, isEmpty);
     });
   });
 }
