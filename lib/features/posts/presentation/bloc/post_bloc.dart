@@ -71,9 +71,13 @@ class PostBloc extends Bloc<PostEvent, PostState> {
         imageBytes: event.imageBytes,
         imageExtension: event.imageExtension,
       );
-      // Stream update will deliver the new post via watchPosts() automatically.
-      if (current is PostLoaded) {
-        emit(current.copyWith(isSubmitting: false));
+      // Use the live state rather than the captured `current` so that any
+      // posts delivered by the watchPosts() stream during the async write are
+      // preserved. Using `current` here would overwrite a fresh stream
+      // emission with the stale pre-creation list.
+      final afterCreate = state;
+      if (afterCreate is PostLoaded) {
+        emit(afterCreate.copyWith(isSubmitting: false));
       }
     } catch (e) {
       emit(PostFailure(error: e.toString()));
