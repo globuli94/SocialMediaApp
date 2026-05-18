@@ -361,6 +361,147 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // PostCreateRequested — BUG-011 regression (SOCAA-259)
+  // Verifies that stream-delivered posts received while isSubmitting=true are
+  // NOT overwritten when createPost() completes and isSubmitting clears.
+  // -------------------------------------------------------------------------
+
+  group('PostCreateRequested — BUG-011 regression', () {
+    test(
+      'AC1: stream-delivered posts during submission are preserved when '
+      'isSubmitting clears',
+      () async {
+        // Use a broadcast stream so the BLoC can re-subscribe if needed and
+        // so we can push items at any point without single-subscription errors.
+        final streamController =
+            StreamController<List<PostEntity>>.broadcast();
+        final createCompleter = Completer<PostEntity>();
+
+        when(() => mockRepository.watchPosts())
+            .thenAnswer((_) => streamController.stream);
+        when(
+          () => mockRepository.createPost(
+            authorUid: any(named: 'authorUid'),
+            authorDisplayName: any(named: 'authorDisplayName'),
+            authorAvatarUrl: any(named: 'authorAvatarUrl'),
+            content: any(named: 'content'),
+            imageBytes: any(named: 'imageBytes'),
+            imageExtension: any(named: 'imageExtension'),
+          ),
+        ).thenAnswer((_) => createCompleter.future);
+
+        final bloc = PostBloc(postRepository: mockRepository);
+
+        // Step 1: Start watching the feed stream.
+        bloc.add(const PostWatchStarted());
+        await Future<void>.delayed(Duration.zero);
+
+        // Step 2: Stream delivers the initial feed (1 post).
+        streamController.add([testPost]);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(bloc.state, isA<PostLoaded>());
+        expect((bloc.state as PostLoaded).posts, [testPost]);
+
+        // Step 3: User submits a new post.
+        // createPost is pending — the Completer has not been completed yet.
+        bloc.add(
+          const PostCreateRequested(
+            authorUid: 'uid-alice',
+            authorDisplayName: 'Alice',
+            content: 'Brand new post',
+          ),
+        );
+        // Allow the BLoC event handler to run up to the
+        // `await createCompleter.future` suspension point.
+        await Future<void>.delayed(Duration.zero);
+
+        // Step 4: WHILE createPost is pending, the Firestore stream delivers
+        // the updated list that includes the brand-new post.
+        final brandNewPost = PostEntity(
+          id: 'post-brand-new',
+          authorUid: 'uid-alice',
+          authorDisplayName: 'Alice',
+          content: 'Brand new post',
+          createdAt: DateTime(2026, 1, 3),
+          authorAvatarUrl: null,
+          imageUrl: null,
+        );
+        streamController.add([brandNewPost, testPost]);
+        await Future<void>.delayed(Duration.zero);
+
+        // Step 5: createPost() completes.
+        createCompleter.complete(brandNewPost);
+        await Future<void>.delayed(Duration.zero);
+
+        // AC1 assertion: the fix uses `state.copyWith(isSubmitting: false)`
+        // so the stream-delivered posts must not be overwritten.
+        expect(bloc.state, isA<PostLoaded>());
+        final finalState = bloc.state as PostLoaded;
+        expect(
+          finalState.isSubmitting,
+          isFalse,
+          reason: 'isSubmitting must clear after createPost completes',
+        );
+        expect(
+          finalState.posts,
+          containsAll([brandNewPost, testPost]),
+          reason:
+              'stream-delivered posts must not be overwritten when '
+              'isSubmitting clears (BUG-011 / SOCAA-259)',
+        );
+        expect(
+          finalState.posts.length,
+          2,
+          reason: 'no posts must be lost or duplicated',
+        );
+
+        await bloc.close();
+        await streamController.close();
+      },
+    );
+
+    test(
+      'AC2: pull-to-refresh after creation does not duplicate posts',
+      () async {
+        // Return a fresh Stream on every watchPosts() call so that the BLoC
+        // can re-subscribe when PostWatchStarted is dispatched again without
+        // hitting "stream has already been listened to".
+        when(() => mockRepository.watchPosts())
+            .thenAnswer((_) => Stream.value([testPost, testPost2]));
+
+        final bloc = PostBloc(postRepository: mockRepository);
+
+        // First watch — loads 2 posts.
+        bloc.add(const PostWatchStarted());
+        await Future<void>.delayed(Duration.zero);
+
+        expect(
+          (bloc.state as PostLoaded).posts.length,
+          2,
+          reason: 'initial load must show 2 posts',
+        );
+
+        // Pull-to-refresh fires PostWatchStarted again.
+        // The BLoC cancels its old subscription and creates a fresh one.
+        bloc.add(const PostWatchStarted());
+        await Future<void>.delayed(Duration.zero);
+
+        // AC2 assertion: exactly 2 posts, none duplicated.
+        final refreshedState = bloc.state as PostLoaded;
+        expect(
+          refreshedState.posts.length,
+          2,
+          reason: 'pull-to-refresh must not duplicate posts',
+        );
+        expect(refreshedState.isSubmitting, isFalse);
+
+        await bloc.close();
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
   // PostDeleteRequested
   // -------------------------------------------------------------------------
 
