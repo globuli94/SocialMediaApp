@@ -11,6 +11,10 @@ import 'package:social_network/features/auth/domain/repositories/auth_repository
 import 'package:social_network/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/signup_screen.dart';
+import 'package:social_network/features/chat/domain/repositories/chat_repository.dart';
+import 'package:social_network/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:social_network/features/chat/presentation/screens/chat_screen.dart';
+import 'package:social_network/features/chat/presentation/screens/conversations_screen.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_list_bloc.dart';
@@ -147,6 +151,28 @@ GoRouter createRouter({required AuthRepository authRepository}) {
         path: '/post/create',
         builder: (BuildContext context, GoRouterState state) =>
             const CreatePostScreen(),
+      ),
+      GoRoute(
+        path: '/chat',
+        builder: (BuildContext context, GoRouterState state) =>
+            const ConversationsScreen(),
+      ),
+      GoRoute(
+        path: '/chat/:conversationId',
+        builder: (BuildContext context, GoRouterState state) {
+          final conversationId = state.pathParameters['conversationId']!;
+          final extra = state.extra as Map<String, String>;
+          return BlocProvider<ChatBloc>(
+            create: (_) => ChatBloc(
+              chatRepository: context.read<ChatRepository>(),
+            ),
+            child: ChatScreen(
+              conversationId: conversationId,
+              currentUid: extra['currentUid']!,
+              recipientUid: extra['recipientUid']!,
+            ),
+          );
+        },
       ),
     ],
   );

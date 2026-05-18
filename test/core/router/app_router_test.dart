@@ -20,6 +20,9 @@
 // /profile/:uid route builder both create a scoped PostBloc via
 // context.read<PostRepository>().
 //
+// Updated to provide ConversationsBloc and ChatRepository after FEAT-011
+// added the Messages tab (AppShellScreen requires both in the widget tree).
+//
 // Tests that navigate to /home use pump() instead of pumpAndSettle() because
 // ProfileScreen shows a CircularProgressIndicator whose animation never settles.
 
@@ -52,6 +55,10 @@ import 'package:social_network/features/profile/presentation/screens/profile_scr
 import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
 import 'package:social_network/features/search/presentation/bloc/search_event.dart';
 import 'package:social_network/features/search/presentation/bloc/search_state.dart';
+import 'package:social_network/features/chat/domain/repositories/chat_repository.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -76,6 +83,12 @@ class MockProfileRepository extends Mock implements ProfileRepository {}
 
 class MockPostRepository extends Mock implements PostRepository {}
 
+class MockConversationsBloc
+    extends MockBloc<ConversationsEvent, ConversationsState>
+    implements ConversationsBloc {}
+
+class MockChatRepository extends Mock implements ChatRepository {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -94,7 +107,9 @@ Widget _buildApp(
   MockSearchBloc searchBloc,
   MockFollowRepository followRepository,
   MockProfileRepository profileRepository,
-  MockPostRepository postRepository, {
+  MockPostRepository postRepository,
+  MockConversationsBloc conversationsBloc,
+  MockChatRepository chatRepository, {
   GoRouter? router,
 }) {
   final effectiveRouter = router ?? createRouter(authRepository: mockRepo);
@@ -103,6 +118,7 @@ Widget _buildApp(
       RepositoryProvider<FollowRepository>.value(value: followRepository),
       RepositoryProvider<ProfileRepository>.value(value: profileRepository),
       RepositoryProvider<PostRepository>.value(value: postRepository),
+      RepositoryProvider<ChatRepository>.value(value: chatRepository),
     ],
     child: MultiBlocProvider(
       providers: [
@@ -110,6 +126,7 @@ Widget _buildApp(
         BlocProvider<PostBloc>.value(value: postBloc),
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<SearchBloc>.value(value: searchBloc),
+        BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
       ],
       child: MaterialApp.router(routerConfig: effectiveRouter),
     ),
@@ -129,6 +146,8 @@ void main() {
   late MockFollowRepository followRepository;
   late MockProfileRepository profileRepository;
   late MockPostRepository postRepository;
+  late MockConversationsBloc conversationsBloc;
+  late MockChatRepository chatRepository;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -138,6 +157,7 @@ void main() {
       const SearchQueryChanged(query: '', currentUid: ''),
     );
     registerFallbackValue(const SearchCleared());
+    registerFallbackValue(const ConversationsWatchStarted(''));
   });
 
   setUp(() {
@@ -149,6 +169,8 @@ void main() {
     followRepository = MockFollowRepository();
     profileRepository = MockProfileRepository();
     postRepository = MockPostRepository();
+    conversationsBloc = MockConversationsBloc();
+    chatRepository = MockChatRepository();
     // Scoped PostBloc (created by AppShellScreen and /profile/:uid route)
     // calls watchPostsByAuthorUid and watchPostLiked on the real repository.
     when(() => postRepository.watchPostsByAuthorUid(any()))
@@ -163,6 +185,10 @@ void main() {
     when(() => profileBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => searchBloc.state).thenReturn(const SearchInitial());
     when(() => searchBloc.stream).thenAnswer((_) => const Stream.empty());
+    when(() => conversationsBloc.state)
+        .thenReturn(const ConversationsInitial());
+    when(() => conversationsBloc.stream)
+        .thenAnswer((_) => const Stream.empty());
   });
 
   group('GoRouterRefreshStream', () {
@@ -221,6 +247,8 @@ void main() {
           followRepository,
           profileRepository,
           postRepository,
+          conversationsBloc,
+          chatRepository,
         ),
       );
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
@@ -243,6 +271,7 @@ void main() {
             RepositoryProvider<ProfileRepository>.value(
                 value: profileRepository),
             RepositoryProvider<PostRepository>.value(value: postRepository),
+            RepositoryProvider<ChatRepository>.value(value: chatRepository),
           ],
           child: MultiBlocProvider(
             providers: [
@@ -250,6 +279,7 @@ void main() {
               BlocProvider<PostBloc>.value(value: postBloc),
               BlocProvider<ProfileBloc>.value(value: profileBloc),
               BlocProvider<SearchBloc>.value(value: searchBloc),
+              BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
             ],
             child: MaterialApp.router(routerConfig: router),
           ),
@@ -279,6 +309,7 @@ void main() {
             RepositoryProvider<ProfileRepository>.value(
                 value: profileRepository),
             RepositoryProvider<PostRepository>.value(value: postRepository),
+            RepositoryProvider<ChatRepository>.value(value: chatRepository),
           ],
           child: MultiBlocProvider(
             providers: [
@@ -286,6 +317,7 @@ void main() {
               BlocProvider<PostBloc>.value(value: postBloc),
               BlocProvider<ProfileBloc>.value(value: profileBloc),
               BlocProvider<SearchBloc>.value(value: searchBloc),
+              BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
             ],
             child: MaterialApp.router(routerConfig: router),
           ),
@@ -316,6 +348,7 @@ void main() {
             RepositoryProvider<ProfileRepository>.value(
                 value: profileRepository),
             RepositoryProvider<PostRepository>.value(value: postRepository),
+            RepositoryProvider<ChatRepository>.value(value: chatRepository),
           ],
           child: MultiBlocProvider(
             providers: [
@@ -323,6 +356,7 @@ void main() {
               BlocProvider<PostBloc>.value(value: postBloc),
               BlocProvider<ProfileBloc>.value(value: profileBloc),
               BlocProvider<SearchBloc>.value(value: searchBloc),
+              BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
             ],
             child: MaterialApp.router(routerConfig: router),
           ),
@@ -411,6 +445,8 @@ void main() {
           followRepository,
           profileRepository,
           postRepository,
+          conversationsBloc,
+          chatRepository,
           router: router,
         ),
       );
@@ -447,6 +483,8 @@ void main() {
           followRepository,
           profileRepository,
           postRepository,
+          conversationsBloc,
+          chatRepository,
           router: router,
         ),
       );
@@ -496,6 +534,8 @@ void main() {
           followRepository,
           profileRepository,
           postRepository,
+          conversationsBloc,
+          chatRepository,
           router: router,
         ),
       );
@@ -541,6 +581,8 @@ void main() {
           followRepository,
           profileRepository,
           postRepository,
+          conversationsBloc,
+          chatRepository,
           router: router,
         ),
       );
@@ -592,6 +634,8 @@ void main() {
           followRepository,
           profileRepository,
           postRepository,
+          conversationsBloc,
+          chatRepository,
           router: router,
         ),
       );
@@ -635,6 +679,8 @@ void main() {
           followRepository,
           profileRepository,
           postRepository,
+          conversationsBloc,
+          chatRepository,
           router: router,
         ),
       );

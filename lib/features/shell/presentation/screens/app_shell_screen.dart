@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
+import 'package:social_network/features/chat/presentation/screens/conversations_screen.dart';
 import 'package:social_network/features/feed/presentation/screens/feed_screen.dart';
 import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
@@ -25,7 +28,8 @@ class AppShellScreen extends StatefulWidget {
 class _AppShellScreenState extends State<AppShellScreen> {
   int _selectedIndex = 0;
 
-  static const int _profileTabIndex = 2;
+  // Tab order: Feed (0), Search (1), Messages (2), Profile (3).
+  static const int _profileTabIndex = 3;
 
   void _onDestinationSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -50,6 +54,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
         children: [
           const FeedScreen(),
           const SearchScreen(),
+          const ConversationsScreen(),
           // Provide a dedicated PostBloc for the profile tab so that
           // PostsByAuthorWatchStarted does not interfere with the global
           // PostBloc used by FeedScreen.
@@ -64,24 +69,56 @@ class _AppShellScreenState extends State<AppShellScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onDestinationSelected,
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Feed',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.search_outlined),
             selectedIcon: Icon(Icons.search),
             label: 'Search',
           ),
           NavigationDestination(
+            icon: _ChatBadgeIcon(isSelected: false),
+            selectedIcon: _ChatBadgeIcon(isSelected: true),
+            label: 'Messages',
+          ),
+          const NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Chat icon that shows a red [Badge] when there are unread messages.
+class _ChatBadgeIcon extends StatelessWidget {
+  const _ChatBadgeIcon({required this.isSelected});
+
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ConversationsBloc, ConversationsState>(
+      builder: (context, state) {
+        final totalUnread =
+            state is ConversationsLoaded ? state.totalUnread : 0;
+        final icon = Icon(
+          isSelected ? Icons.chat : Icons.chat_outlined,
+        );
+        if (totalUnread > 0) {
+          return Badge(
+            label: Text('$totalUnread'),
+            child: icon,
+          );
+        }
+        return icon;
+      },
     );
   }
 }
