@@ -70,5 +70,34 @@ Tracks which users have liked a post. Written atomically alongside the `likeCoun
 
 ---
 
+---
+
+## conversations
+
+Stores 1-to-1 conversations between two users.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| id | string | yes | Auto-generated document ID |
+| participantUids | array\<string\> | yes | Exactly 2 UIDs; used for array-contains queries |
+| lastMessageText | string | yes | Preview text of the most recent message |
+| lastMessageAt | timestamp | yes | Timestamp of the most recent message; used for sort |
+| lastMessageSenderUid | string | yes | UID of the sender of the last message |
+| unreadCounts | map\<string, number\> | yes | Keyed by UID — e.g. `{"uid1": 0, "uid2": 2}` |
+| createdAt | timestamp | yes | When the conversation was created |
+
+### Subcollection: conversations/{conversationId}/messages
+
+Each document is one message in the conversation thread.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| id | string | yes | Auto-generated document ID |
+| senderUid | string | yes | UID of the sender |
+| text | string | yes | Message body |
+| createdAt | timestamp | yes | When the message was sent |
+
+---
+
 > *Additional collections will be defined here as features are added.
 > All changes require a ticket assigned to the Firebase Agent.*
