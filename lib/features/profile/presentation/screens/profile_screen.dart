@@ -89,7 +89,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return BlocListener<ConversationsBloc, ConversationsState>(
       listener: (context, state) {
-        if (state is ConversationsNavigateToChat) {
+        if (state is ConversationsNavigateToChat &&
+            ModalRoute.of(context)?.isCurrent == true) {
           final conv = state.conversation;
           final currentUid = _currentUid ?? '';
           final otherUid = conv.participantUids.firstWhere(
