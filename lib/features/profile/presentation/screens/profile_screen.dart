@@ -11,6 +11,10 @@ import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
+import 'package:social_network/features/posts/presentation/widgets/post_card.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
@@ -55,6 +59,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context
           .read<ProfileBloc>()
           .add(ProfileWatchRequested(uid: targetUid));
+
+      // Start watching posts for this profile.
+      context
+          .read<PostBloc>()
+          .add(PostsByAuthorWatchStarted(authorUid: targetUid));
 
       // Start watching follow status when viewing another user's profile.
       if (currentUid != null && targetUid != currentUid) {
@@ -140,11 +149,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _StatChip(
                           label: 'Followers',
                           value: profile.followerCount,
+                          onTap: _resolvedUid != null
+                              ? () => context.push(
+                                    '/profile/$_resolvedUid/followers',
+                                  )
+                              : null,
                         ),
                         const SizedBox(width: 32),
                         _StatChip(
                           label: 'Following',
                           value: profile.followingCount,
+                          onTap: _resolvedUid != null
+                              ? () => context.push(
+                                    '/profile/$_resolvedUid/following',
+                                  )
+                              : null,
                         ),
                       ],
                     ),
@@ -159,6 +178,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 16),
                       const CircularProgressIndicator(),
                     ],
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    BlocBuilder<PostBloc, PostState>(
+                      builder: (context, postState) {
+                        if (postState is PostLoading) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 32),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        if (postState is PostLoaded) {
+                          if (postState.posts.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 32),
+                              child: Center(child: Text('No posts yet')),
+                            );
+                          }
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: postState.posts.length,
+                            itemBuilder: (context, index) {
+                              final post = postState.posts[index];
+                              return PostCard(
+                                post: post,
+                                currentUserUid: currentUid ?? _currentUid ?? '',
+                              );
+                            },
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -243,8 +296,9 @@ class _FollowButton extends StatelessWidget {
 }
 
 /// Small chip that displays a stat label and numeric value.
+/// Tappable when [onTap] is provided.
 class _StatChip extends StatelessWidget {
-  const _StatChip({required this.label, required this.value});
+  const _StatChip({required this.label, required this.value, this.onTap});
 
   /// Label shown below the numeric value.
   final String label;
@@ -252,20 +306,26 @@ class _StatChip extends StatelessWidget {
   /// Numeric count to display.
   final int value;
 
+  /// Optional tap handler. When provided, the chip becomes tappable.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '$value',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$value',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
     );
   }
 }

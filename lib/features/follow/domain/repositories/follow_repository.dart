@@ -2,6 +2,8 @@
 //
 // FollowRepository — abstract contract for follow / unfollow operations.
 
+import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
+
 /// Abstract contract for follow / unfollow operations and follow-status streams.
 abstract class FollowRepository {
   /// Creates the Firestore follow relationship between [followerId] and
@@ -24,4 +26,10 @@ abstract class FollowRepository {
     required String followerId,
     required String followeeId,
   });
+
+  /// Fetches the list of users who follow [uid].
+  Future<List<UserProfileEntity>> getFollowers(String uid);
+
+  /// Fetches the list of users that [uid] is following.
+  Future<List<UserProfileEntity>> getFollowing(String uid);
 }

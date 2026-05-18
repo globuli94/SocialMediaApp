@@ -4,6 +4,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
+import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
 
 /// Concrete implementation of [FollowRepository] backed by [FirebaseFirestore].
 ///
@@ -110,5 +111,79 @@ class FollowRepositoryImpl implements FollowRepository {
         .doc(followeeId)
         .snapshots()
         .map((s) => s.exists);
+  }
+
+  @override
+  Future<List<UserProfileEntity>> getFollowers(String uid) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('followers')
+          .get();
+
+      final followers = <UserProfileEntity>[];
+      for (final doc in snapshot.docs) {
+        final followerId = doc['followerId'] as String?;
+        if (followerId != null) {
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(followerId)
+              .get();
+          if (userDoc.exists) {
+            final data = userDoc.data()!;
+            followers.add(UserProfileEntity(
+              uid: followerId,
+              displayName: data['displayName'] as String? ?? '',
+              bio: data['bio'] as String? ?? '',
+              avatarUrl: data['avatarUrl'] as String?,
+              postCount: (data['postCount'] as num?)?.toInt() ?? 0,
+              followerCount: (data['followerCount'] as num?)?.toInt() ?? 0,
+              followingCount: (data['followingCount'] as num?)?.toInt() ?? 0,
+            ));
+          }
+        }
+      }
+      return followers;
+    } catch (e) {
+      throw Exception('Failed to fetch followers: $e');
+    }
+  }
+
+  @override
+  Future<List<UserProfileEntity>> getFollowing(String uid) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('following')
+          .get();
+
+      final following = <UserProfileEntity>[];
+      for (final doc in snapshot.docs) {
+        final followeeId = doc['followeeId'] as String?;
+        if (followeeId != null) {
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(followeeId)
+              .get();
+          if (userDoc.exists) {
+            final data = userDoc.data()!;
+            following.add(UserProfileEntity(
+              uid: followeeId,
+              displayName: data['displayName'] as String? ?? '',
+              bio: data['bio'] as String? ?? '',
+              avatarUrl: data['avatarUrl'] as String?,
+              postCount: (data['postCount'] as num?)?.toInt() ?? 0,
+              followerCount: (data['followerCount'] as num?)?.toInt() ?? 0,
+              followingCount: (data['followingCount'] as num?)?.toInt() ?? 0,
+            ));
+          }
+        }
+      }
+      return following;
+    } catch (e) {
+      throw Exception('Failed to fetch following: $e');
+    }
   }
 }
