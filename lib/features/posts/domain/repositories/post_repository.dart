@@ -40,4 +40,8 @@ abstract class PostRepository {
   /// Emits true if [userId] has liked the post with [postId], false otherwise.
   /// Updates on every like/unlike change.
   Stream<bool> watchPostLiked(String postId, String userId);
+
+  /// Emits the latest list of posts authored by [authorUid].
+  /// Ordered by createdAt descending.
+  Stream<List<PostEntity>> watchPostsByAuthorUid(String authorUid);
 }

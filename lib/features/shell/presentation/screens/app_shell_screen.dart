@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/feed/presentation/screens/feed_screen.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/screens/profile_screen.dart';
@@ -22,12 +24,6 @@ class AppShellScreen extends StatefulWidget {
 
 class _AppShellScreenState extends State<AppShellScreen> {
   int _selectedIndex = 0;
-
-  static const List<Widget> _screens = [
-    FeedScreen(),
-    SearchScreen(),
-    ProfileScreen(),
-  ];
 
   static const int _profileTabIndex = 2;
 
@@ -51,7 +47,19 @@ class _AppShellScreenState extends State<AppShellScreen> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: _screens,
+        children: [
+          const FeedScreen(),
+          const SearchScreen(),
+          // Provide a dedicated PostBloc for the profile tab so that
+          // PostsByAuthorWatchStarted does not interfere with the global
+          // PostBloc used by FeedScreen.
+          BlocProvider<PostBloc>(
+            create: (context) => PostBloc(
+              postRepository: context.read<PostRepository>(),
+            ),
+            child: const ProfileScreen(),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,

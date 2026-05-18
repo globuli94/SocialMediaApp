@@ -61,3 +61,13 @@ class PostsUpdated extends PostEvent {
   @override
   List<Object?> get props => [posts];
 }
+
+/// Starts watching posts filtered by [authorUid], ordered by createdAt desc.
+class PostsByAuthorWatchStarted extends PostEvent {
+  const PostsByAuthorWatchStarted({required this.authorUid});
+
+  final String authorUid;
+
+  @override
+  List<Object?> get props => [authorUid];
+}

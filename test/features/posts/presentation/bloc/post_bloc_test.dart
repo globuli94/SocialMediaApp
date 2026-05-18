@@ -153,6 +153,82 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // PostsByAuthorWatchStarted
+  // -------------------------------------------------------------------------
+
+  group('PostsByAuthorWatchStarted', () {
+    blocTest<PostBloc, PostState>(
+      'emits [PostLoading, PostLoaded] when watchPostsByAuthorUid emits posts',
+      setUp: () {
+        when(() => mockRepository.watchPostsByAuthorUid('uid-alice'))
+            .thenAnswer((_) => Stream.value([testPost]));
+      },
+      build: () => PostBloc(postRepository: mockRepository),
+      act: (bloc) =>
+          bloc.add(const PostsByAuthorWatchStarted(authorUid: 'uid-alice')),
+      expect: () => [
+        const PostLoading(),
+        isA<PostLoaded>()
+            .having((s) => s.posts.length, 'posts.length', 1)
+            .having(
+              (s) => s.posts.first.authorUid,
+              'posts.first.authorUid',
+              'uid-alice',
+            ),
+      ],
+      verify: (_) => verify(
+        () => mockRepository.watchPostsByAuthorUid('uid-alice'),
+      ).called(1),
+    );
+
+    blocTest<PostBloc, PostState>(
+      'emits [PostLoading, PostLoaded(empty)] when watchPostsByAuthorUid emits empty list',
+      setUp: () {
+        when(() => mockRepository.watchPostsByAuthorUid('uid-alice'))
+            .thenAnswer((_) => Stream.value([]));
+      },
+      build: () => PostBloc(postRepository: mockRepository),
+      act: (bloc) =>
+          bloc.add(const PostsByAuthorWatchStarted(authorUid: 'uid-alice')),
+      expect: () => [
+        const PostLoading(),
+        isA<PostLoaded>().having((s) => s.posts, 'posts', isEmpty),
+      ],
+    );
+
+    blocTest<PostBloc, PostState>(
+      'emits [PostLoading, PostFailure] when watchPostsByAuthorUid emits an error',
+      setUp: () {
+        when(() => mockRepository.watchPostsByAuthorUid('uid-alice'))
+            .thenAnswer((_) => Stream.error(Exception('index not ready')));
+      },
+      build: () => PostBloc(postRepository: mockRepository),
+      act: (bloc) =>
+          bloc.add(const PostsByAuthorWatchStarted(authorUid: 'uid-alice')),
+      expect: () => [
+        const PostLoading(),
+        isA<PostFailure>(),
+      ],
+    );
+
+    blocTest<PostBloc, PostState>(
+      'PostsByAuthorWatchStarted props contains authorUid',
+      build: () => PostBloc(postRepository: mockRepository),
+      act: (bloc) {},
+      verify: (_) {
+        const event = PostsByAuthorWatchStarted(authorUid: 'uid-1');
+        expect(event.props, equals(['uid-1']));
+      },
+    );
+
+    test('PostsByAuthorWatchStarted supports value equality', () {
+      const a = PostsByAuthorWatchStarted(authorUid: 'uid-1');
+      const b = PostsByAuthorWatchStarted(authorUid: 'uid-1');
+      expect(a, equals(b));
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // PostCreateRequested
   // -------------------------------------------------------------------------
 

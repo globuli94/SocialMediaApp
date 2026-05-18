@@ -13,6 +13,11 @@ import 'package:social_network/features/auth/presentation/screens/login_screen.d
 import 'package:social_network/features/auth/presentation/screens/signup_screen.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/follow/presentation/bloc/follow_list_bloc.dart';
+import 'package:social_network/features/follow/presentation/screens/followers_screen.dart';
+import 'package:social_network/features/follow/presentation/screens/following_screen.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
+import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/screens/create_post_screen.dart';
 import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
@@ -89,6 +94,7 @@ GoRouter createRouter({required AuthRepository authRepository}) {
       GoRoute(
         path: '/profile/:uid',
         builder: (BuildContext context, GoRouterState state) {
+          final uid = state.pathParameters['uid']!;
           return MultiBlocProvider(
             providers: [
               BlocProvider<ProfileBloc>(
@@ -101,10 +107,41 @@ GoRouter createRouter({required AuthRepository authRepository}) {
                   followRepository: context.read<FollowRepository>(),
                 ),
               ),
+              BlocProvider<PostBloc>(
+                create: (_) => PostBloc(
+                  postRepository: context.read<PostRepository>(),
+                ),
+              ),
             ],
-            child: ProfileScreen(uid: state.pathParameters['uid']),
+            child: ProfileScreen(uid: uid),
           );
         },
+        routes: [
+          GoRoute(
+            path: 'followers',
+            builder: (BuildContext context, GoRouterState state) {
+              final uid = state.pathParameters['uid']!;
+              return BlocProvider<FollowListBloc>(
+                create: (_) => FollowListBloc(
+                  followRepository: context.read<FollowRepository>(),
+                ),
+                child: FollowersScreen(uid: uid),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'following',
+            builder: (BuildContext context, GoRouterState state) {
+              final uid = state.pathParameters['uid']!;
+              return BlocProvider<FollowListBloc>(
+                create: (_) => FollowListBloc(
+                  followRepository: context.read<FollowRepository>(),
+                ),
+                child: FollowingScreen(uid: uid),
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/post/create',

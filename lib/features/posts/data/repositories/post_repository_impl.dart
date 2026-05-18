@@ -167,4 +167,14 @@ class PostRepositoryImpl implements PostRepository {
         .snapshots()
         .map((snapshot) => snapshot.exists);
   }
+
+  @override
+  Stream<List<PostEntity>> watchPostsByAuthorUid(String authorUid) {
+    return _firestore
+        .collection('posts')
+        .where('authorUid', isEqualTo: authorUid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(_docToEntity).toList());
+  }
 }

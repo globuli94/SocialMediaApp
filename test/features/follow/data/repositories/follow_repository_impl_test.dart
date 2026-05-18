@@ -190,4 +190,158 @@ void main() {
       expect(snap.data()?['followerCount'], equals(6));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // getFollowers
+  // ---------------------------------------------------------------------------
+
+  group('getFollowers()', () {
+    test('returns empty list when user has no followers', () async {
+      final result = await sut.getFollowers('uid-target');
+      expect(result, isEmpty);
+    });
+
+    test('returns UserProfileEntity list for each follower', () async {
+      // Seed follower subcollection entry.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-target')
+          .collection('followers')
+          .doc('uid-a')
+          .set({'followerId': 'uid-a'});
+
+      // Seed the follower's profile document.
+      await fakeFirestore.collection('users').doc('uid-a').set({
+        'displayName': 'Alice',
+        'bio': 'Hello',
+        'avatarUrl': null,
+        'postCount': 3,
+        'followerCount': 10,
+        'followingCount': 5,
+      });
+
+      final result = await sut.getFollowers('uid-target');
+
+      expect(result, hasLength(1));
+      expect(result.first.uid, equals('uid-a'));
+      expect(result.first.displayName, equals('Alice'));
+      expect(result.first.bio, equals('Hello'));
+      expect(result.first.postCount, equals(3));
+      expect(result.first.followerCount, equals(10));
+      expect(result.first.followingCount, equals(5));
+    });
+
+    test('returns multiple followers when subcollection has multiple docs',
+        () async {
+      for (final id in ['uid-a', 'uid-b']) {
+        await fakeFirestore
+            .collection('users')
+            .doc('uid-target')
+            .collection('followers')
+            .doc(id)
+            .set({'followerId': id});
+
+        await fakeFirestore.collection('users').doc(id).set({
+          'displayName': 'User $id',
+          'bio': '',
+          'postCount': 0,
+          'followerCount': 0,
+          'followingCount': 0,
+        });
+      }
+
+      final result = await sut.getFollowers('uid-target');
+      expect(result, hasLength(2));
+    });
+
+    test('skips follower entry when user profile doc does not exist', () async {
+      // Follower subcollection entry points to a non-existent user doc.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-target')
+          .collection('followers')
+          .doc('uid-ghost')
+          .set({'followerId': 'uid-ghost'});
+
+      final result = await sut.getFollowers('uid-target');
+      expect(result, isEmpty);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // getFollowing
+  // ---------------------------------------------------------------------------
+
+  group('getFollowing()', () {
+    test('returns empty list when user follows nobody', () async {
+      final result = await sut.getFollowing('uid-target');
+      expect(result, isEmpty);
+    });
+
+    test('returns UserProfileEntity list for each followed user', () async {
+      // Seed following subcollection entry.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-target')
+          .collection('following')
+          .doc('uid-b')
+          .set({'followeeId': 'uid-b'});
+
+      // Seed the followee's profile document.
+      await fakeFirestore.collection('users').doc('uid-b').set({
+        'displayName': 'Bob',
+        'bio': 'Developer',
+        'avatarUrl': null,
+        'postCount': 7,
+        'followerCount': 20,
+        'followingCount': 2,
+      });
+
+      final result = await sut.getFollowing('uid-target');
+
+      expect(result, hasLength(1));
+      expect(result.first.uid, equals('uid-b'));
+      expect(result.first.displayName, equals('Bob'));
+      expect(result.first.bio, equals('Developer'));
+      expect(result.first.postCount, equals(7));
+      expect(result.first.followerCount, equals(20));
+      expect(result.first.followingCount, equals(2));
+    });
+
+    test('returns multiple followed users when subcollection has multiple docs',
+        () async {
+      for (final id in ['uid-c', 'uid-d']) {
+        await fakeFirestore
+            .collection('users')
+            .doc('uid-target')
+            .collection('following')
+            .doc(id)
+            .set({'followeeId': id});
+
+        await fakeFirestore.collection('users').doc(id).set({
+          'displayName': 'User $id',
+          'bio': '',
+          'postCount': 0,
+          'followerCount': 0,
+          'followingCount': 0,
+        });
+      }
+
+      final result = await sut.getFollowing('uid-target');
+      expect(result, hasLength(2));
+    });
+
+    test('skips following entry when user profile doc does not exist', () async {
+      // Following subcollection entry points to a non-existent user doc.
+      await fakeFirestore
+          .collection('users')
+          .doc('uid-target')
+          .collection('following')
+          .doc('uid-ghost')
+          .set({'followeeId': 'uid-ghost'});
+
+      final result = await sut.getFollowing('uid-target');
+      expect(result, isEmpty);
+    });
+  });
 }
