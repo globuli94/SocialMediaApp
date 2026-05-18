@@ -47,7 +47,21 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.recipientUid)),
+      appBar: AppBar(
+        title: BlocBuilder<ChatBloc, ChatState>(
+          buildWhen: (previous, current) =>
+              current is ChatLoaded &&
+              (previous is! ChatLoaded ||
+                  (previous).recipientDisplayName !=
+                      (current).recipientDisplayName),
+          builder: (context, state) {
+            if (state is ChatLoaded) {
+              return Text(state.recipientDisplayName ?? widget.recipientUid);
+            }
+            return Text(widget.recipientUid);
+          },
+        ),
+      ),
       body: Column(
         children: [
           Expanded(
@@ -58,7 +72,12 @@ class _ChatScreenState extends State<ChatScreen> {
                       child: CircularProgressIndicator(),
                     ),
                   ChatError(:final message) => Center(child: Text(message)),
-                  ChatLoaded(:final messages, :final currentUid) =>
+                  ChatLoaded(
+                    :final messages,
+                    :final currentUid,
+                    :final recipientDisplayName,
+                    :final recipientAvatarUrl,
+                  ) =>
                     messages.isEmpty
                         ? const Center(child: Text('No messages yet'))
                         : ListView.builder(
@@ -74,6 +93,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                 text: msg.text,
                                 createdAt: msg.createdAt,
                                 isSent: isSent,
+                                senderDisplayName:
+                                    isSent ? null : recipientDisplayName,
+                                senderAvatarUrl:
+                                    isSent ? null : recipientAvatarUrl,
                               );
                             },
                           ),
@@ -96,11 +119,19 @@ class _MessageBubble extends StatelessWidget {
     required this.text,
     required this.createdAt,
     required this.isSent,
+    this.senderDisplayName,
+    this.senderAvatarUrl,
   });
 
   final String text;
   final DateTime createdAt;
   final bool isSent;
+
+  /// Display name of the sender — only provided for received messages.
+  final String? senderDisplayName;
+
+  /// Avatar URL of the sender — only provided for received messages.
+  final String? senderAvatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -111,34 +142,73 @@ class _MessageBubble extends StatelessWidget {
         isSent ? colorScheme.onPrimary : colorScheme.onSurfaceVariant;
     final timeLabel = _formatTime(createdAt.toLocal());
 
-    return Align(
-      alignment: isSent ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.72,
-        ),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment:
-              isSent ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(text, style: TextStyle(color: fgColor)),
-            const SizedBox(height: 2),
-            Text(
-              timeLabel,
-              style: TextStyle(
-                color: fgColor.withValues(alpha: 0.7),
-                fontSize: 11,
+    final bubble = Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.65,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            isSent ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isSent && senderDisplayName != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                senderDisplayName!,
+                style: TextStyle(
+                  color: fgColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
             ),
-          ],
-        ),
+          Text(text, style: TextStyle(color: fgColor)),
+          const SizedBox(height: 2),
+          Text(
+            timeLabel,
+            style: TextStyle(
+              color: fgColor.withValues(alpha: 0.7),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isSent) {
+      return Align(alignment: Alignment.centerRight, child: bubble);
+    }
+
+    // Received message: show avatar to the left of the bubble.
+    final initials = senderDisplayName?.isNotEmpty == true
+        ? senderDisplayName![0].toUpperCase()
+        : '?';
+    final avatar = CircleAvatar(
+      radius: 16,
+      backgroundImage:
+          senderAvatarUrl != null ? NetworkImage(senderAvatarUrl!) : null,
+      child: senderAvatarUrl == null
+          ? Text(initials, style: const TextStyle(fontSize: 12))
+          : null,
+    );
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          avatar,
+          const SizedBox(width: 6),
+          bubble,
+        ],
       ),
     );
   }

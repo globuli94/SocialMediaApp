@@ -28,6 +28,8 @@ final class ChatLoaded extends ChatState {
     required this.currentUid,
     required this.recipientUid,
     required this.messages,
+    this.recipientDisplayName,
+    this.recipientAvatarUrl,
   });
 
   final String conversationId;
@@ -35,12 +37,20 @@ final class ChatLoaded extends ChatState {
   final String recipientUid;
   final List<MessageEntity> messages;
 
+  /// Resolved display name for the other participant, or null while loading.
+  final String? recipientDisplayName;
+
+  /// Avatar URL for the other participant, or null if unset.
+  final String? recipientAvatarUrl;
+
   @override
   List<Object?> get props => [
         conversationId,
         currentUid,
         recipientUid,
         messages,
+        recipientDisplayName,
+        recipientAvatarUrl,
       ];
 }
 

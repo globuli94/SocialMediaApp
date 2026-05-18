@@ -165,6 +165,7 @@ GoRouter createRouter({required AuthRepository authRepository}) {
           return BlocProvider<ChatBloc>(
             create: (_) => ChatBloc(
               chatRepository: context.read<ChatRepository>(),
+              profileRepository: context.read<ProfileRepository>(),
             ),
             child: ChatScreen(
               conversationId: conversationId,

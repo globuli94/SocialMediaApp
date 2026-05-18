@@ -113,7 +113,10 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     _chatRepository = ChatRepositoryImpl(
       firestore: FirebaseFirestore.instance,
     );
-    _conversationsBloc = ConversationsBloc(chatRepository: _chatRepository);
+    _conversationsBloc = ConversationsBloc(
+      chatRepository: _chatRepository,
+      profileRepository: _profileRepository,
+    );
     // Dispatch ConversationsWatchStarted when the user is already authenticated
     // at startup, and listen for subsequent auth changes.
     _authBloc.stream.listen((authState) {

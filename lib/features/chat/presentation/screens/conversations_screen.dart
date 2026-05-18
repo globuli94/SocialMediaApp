@@ -34,7 +34,11 @@ class ConversationsScreen extends StatelessWidget {
             ConversationsNavigateToChat() => const Center(
                 child: CircularProgressIndicator(),
               ),
-            ConversationsLoaded(:final conversations, :final currentUid) =>
+            ConversationsLoaded(
+              :final conversations,
+              :final currentUid,
+              :final userProfiles,
+            ) =>
               conversations.isEmpty
                   ? const Center(child: Text('No conversations yet'))
                   : ListView.builder(
@@ -45,13 +49,24 @@ class ConversationsScreen extends StatelessWidget {
                           (uid) => uid != currentUid,
                           orElse: () => conv.participantUids.first,
                         );
+                        final profile = userProfiles[otherUid];
+                        final displayName = profile?.displayName ?? otherUid;
+                        final avatarUrl = profile?.avatarUrl;
+                        final initials = displayName.isNotEmpty
+                            ? displayName[0].toUpperCase()
+                            : '?';
                         final unread = conv.unreadCountFor(currentUid);
-                        final timeLabel = _formatTime(conv.lastMessageAt.toLocal());
+                        final timeLabel =
+                            _formatTime(conv.lastMessageAt.toLocal());
                         return ListTile(
                           leading: CircleAvatar(
-                            child: Text(otherUid[0].toUpperCase()),
+                            backgroundImage: avatarUrl != null
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                            child:
+                                avatarUrl == null ? Text(initials) : null,
                           ),
-                          title: Text(otherUid),
+                          title: Text(displayName),
                           subtitle: Text(
                             conv.lastMessageText,
                             maxLines: 1,
