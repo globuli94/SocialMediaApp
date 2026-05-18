@@ -32,15 +32,13 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
 
-  String? _currentUid;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  /// Returns the signed-in user's UID, or an empty string if not yet
+  /// authenticated. Reading directly from the bloc on each call avoids
+  /// a stale-null race where [didChangeDependencies] fires before
+  /// [AuthBloc] has emitted [AuthAuthenticated].
+  String get _uid {
     final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated) {
-      _currentUid = authState.user.uid;
-    }
+    return authState is AuthAuthenticated ? authState.user.uid : '';
   }
 
   @override
@@ -50,9 +48,10 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _onChanged(String query) {
-    if (_currentUid == null) return;
+    final uid = _uid;
+    if (uid.isEmpty) return;
     context.read<SearchBloc>().add(
-          SearchQueryChanged(query: query, currentUid: _currentUid!),
+          SearchQueryChanged(query: query, currentUid: uid),
         );
   }
 
@@ -98,7 +97,7 @@ class _SearchScreenState extends State<SearchScreen> {
               const _EmptyState(),
             SearchLoaded(:final results) => _ResultsList(
                 results: results,
-                currentUid: _currentUid ?? '',
+                currentUid: _uid,
               ),
             SearchFailure(:final error) => Center(
                 child: Padding(
