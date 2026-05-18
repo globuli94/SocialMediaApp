@@ -5,11 +5,15 @@ import 'package:social_network/features/chat/domain/entities/message_entity.dart
 import 'package:social_network/features/chat/domain/repositories/chat_repository.dart';
 import 'package:social_network/features/chat/presentation/bloc/chat_event.dart';
 import 'package:social_network/features/chat/presentation/bloc/chat_state.dart';
+import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 
 /// Manages the message stream and send/read operations for a single chat.
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
-  ChatBloc({required ChatRepository chatRepository})
-      : _repository = chatRepository,
+  ChatBloc({
+    required ChatRepository chatRepository,
+    required ProfileRepository profileRepository,
+  })  : _repository = chatRepository,
+        _profileRepository = profileRepository,
         super(const ChatInitial()) {
     on<ChatWatchStarted>(_onWatchStarted);
     on<ChatMessageSent>(_onMessageSent);
@@ -17,6 +21,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   final ChatRepository _repository;
+  final ProfileRepository _profileRepository;
 
   Future<void> _onWatchStarted(
     ChatWatchStarted event,
@@ -30,6 +35,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         uid: event.currentUid,
       ),
     );
+    // Fetch recipient profile once before subscribing to the message stream.
+    String? recipientDisplayName;
+    String? recipientAvatarUrl;
+    try {
+      final profile = await _profileRepository.getProfile(event.recipientUid);
+      recipientDisplayName = profile.displayName;
+      recipientAvatarUrl = profile.avatarUrl;
+    } catch (_) {}
+
     await emit.forEach<List<MessageEntity>>(
       _repository.watchMessages(event.conversationId),
       onData: (messages) => ChatLoaded(
@@ -37,6 +51,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         currentUid: event.currentUid,
         recipientUid: event.recipientUid,
         messages: messages,
+        recipientDisplayName: recipientDisplayName,
+        recipientAvatarUrl: recipientAvatarUrl,
       ),
       onError: (_, __) => const ChatError('Failed to load messages'),
     );

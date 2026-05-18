@@ -2,6 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 import 'package:social_network/features/chat/domain/entities/conversation_entity.dart';
+import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
 
 /// Base class for all [ConversationsBloc] states.
 sealed class ConversationsState extends Equatable {
@@ -26,10 +27,15 @@ final class ConversationsLoaded extends ConversationsState {
   const ConversationsLoaded({
     required this.conversations,
     required this.currentUid,
+    this.userProfiles = const {},
   });
 
   final List<ConversationEntity> conversations;
   final String currentUid;
+
+  /// Resolved profiles for other participants, keyed by UID.
+  /// May be partial while profiles are still being fetched.
+  final Map<String, UserProfileEntity> userProfiles;
 
   /// Total unread messages across all conversations for [currentUid].
   int get totalUnread => conversations.fold(
@@ -38,7 +44,7 @@ final class ConversationsLoaded extends ConversationsState {
       );
 
   @override
-  List<Object?> get props => [conversations, currentUid];
+  List<Object?> get props => [conversations, currentUid, userProfiles];
 }
 
 /// Loading or creating a conversation succeeded; navigate to chat.

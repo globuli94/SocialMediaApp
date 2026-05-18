@@ -18,12 +18,16 @@ import 'package:social_network/features/chat/domain/repositories/chat_repository
 import 'package:social_network/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:social_network/features/chat/presentation/bloc/chat_event.dart';
 import 'package:social_network/features/chat/presentation/bloc/chat_state.dart';
+import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
+import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
+class MockProfileRepository extends Mock implements ProfileRepository {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -53,9 +57,11 @@ const _watchStarted = ChatWatchStarted(
 
 void main() {
   late MockChatRepository mockRepo;
+  late MockProfileRepository mockProfileRepo;
 
   setUp(() {
     mockRepo = MockChatRepository();
+    mockProfileRepo = MockProfileRepository();
     // Default stub for markAsRead (called on ChatWatchStarted)
     when(
       () => mockRepo.markAsRead(
@@ -63,6 +69,14 @@ void main() {
         uid: any(named: 'uid'),
       ),
     ).thenAnswer((_) async {});
+    when(() => mockProfileRepo.getProfile(any())).thenAnswer(
+      (_) async => const UserProfileEntity(
+        uid: 'uid-other',
+        displayName: 'Other User',
+        bio: '',
+        postCount: 0,
+      ),
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -77,7 +91,7 @@ void main() {
           (_) => Stream.value([_makeMessage()]),
         );
       },
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(_watchStarted),
       expect: () => [
         isA<ChatLoading>(),
@@ -96,7 +110,7 @@ void main() {
           (_) => Stream.value([]),
         );
       },
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(_watchStarted),
       expect: () => [
         isA<ChatLoading>(),
@@ -111,7 +125,7 @@ void main() {
           (_) => Stream.error(Exception('network error')),
         );
       },
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(_watchStarted),
       expect: () => [
         isA<ChatLoading>(),
@@ -127,7 +141,7 @@ void main() {
           (_) => Stream.value([]),
         );
       },
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(_watchStarted),
       verify: (_) => verify(
         () => mockRepo.markAsRead(
@@ -155,7 +169,7 @@ void main() {
           await controller.close();
         });
       },
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(_watchStarted),
       expect: () => [
         isA<ChatLoading>(),
@@ -182,7 +196,7 @@ void main() {
           ),
         ).thenAnswer((_) async {});
       },
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       seed: () => const ChatLoaded(
         conversationId: 'conv-1',
         currentUid: 'uid-me',
@@ -202,7 +216,7 @@ void main() {
 
     blocTest<ChatBloc, ChatState>(
       'does nothing when state is not ChatLoaded',
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       // initial state is ChatInitial
       act: (bloc) => bloc.add(const ChatMessageSent('Hello!')),
       expect: () => <ChatState>[],
@@ -224,7 +238,7 @@ void main() {
   group('ChatMarkAsRead', () {
     blocTest<ChatBloc, ChatState>(
       'calls markAsRead when state is ChatLoaded',
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       seed: () => const ChatLoaded(
         conversationId: 'conv-1',
         currentUid: 'uid-me',
@@ -242,7 +256,7 @@ void main() {
 
     blocTest<ChatBloc, ChatState>(
       'does nothing when state is not ChatLoaded',
-      build: () => ChatBloc(chatRepository: mockRepo),
+      build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(const ChatMarkAsRead()),
       expect: () => <ChatState>[],
       verify: (_) => verifyNever(
