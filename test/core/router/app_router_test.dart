@@ -16,6 +16,10 @@
 // route builder calls context.read<ProfileRepository>() to create a scoped
 // ProfileBloc independent of the global one.
 //
+// Updated to provide PostRepository after SOCAA-252: AppShellScreen and the
+// /profile/:uid route builder both create a scoped PostBloc via
+// context.read<PostRepository>().
+//
 // Tests that navigate to /home use pump() instead of pumpAndSettle() because
 // ProfileScreen shows a CircularProgressIndicator whose animation never settles.
 
@@ -35,6 +39,7 @@ import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
+import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
@@ -69,6 +74,8 @@ class MockFollowRepository extends Mock implements FollowRepository {}
 
 class MockProfileRepository extends Mock implements ProfileRepository {}
 
+class MockPostRepository extends Mock implements PostRepository {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -86,7 +93,8 @@ Widget _buildApp(
   MockProfileBloc profileBloc,
   MockSearchBloc searchBloc,
   MockFollowRepository followRepository,
-  MockProfileRepository profileRepository, {
+  MockProfileRepository profileRepository,
+  MockPostRepository postRepository, {
   GoRouter? router,
 }) {
   final effectiveRouter = router ?? createRouter(authRepository: mockRepo);
@@ -94,6 +102,7 @@ Widget _buildApp(
     providers: [
       RepositoryProvider<FollowRepository>.value(value: followRepository),
       RepositoryProvider<ProfileRepository>.value(value: profileRepository),
+      RepositoryProvider<PostRepository>.value(value: postRepository),
     ],
     child: MultiBlocProvider(
       providers: [
@@ -119,6 +128,7 @@ void main() {
   late MockSearchBloc searchBloc;
   late MockFollowRepository followRepository;
   late MockProfileRepository profileRepository;
+  late MockPostRepository postRepository;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -138,6 +148,13 @@ void main() {
     searchBloc = MockSearchBloc();
     followRepository = MockFollowRepository();
     profileRepository = MockProfileRepository();
+    postRepository = MockPostRepository();
+    // Scoped PostBloc (created by AppShellScreen and /profile/:uid route)
+    // calls watchPostsByAuthorUid and watchPostLiked on the real repository.
+    when(() => postRepository.watchPostsByAuthorUid(any()))
+        .thenAnswer((_) => const Stream.empty());
+    when(() => postRepository.watchPostLiked(any(), any()))
+        .thenAnswer((_) => Stream.value(false));
     when(() => mockBloc.state).thenReturn(const AuthInitial());
     when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
@@ -203,6 +220,7 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
         ),
       );
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
@@ -224,6 +242,7 @@ void main() {
             RepositoryProvider<FollowRepository>.value(value: followRepository),
             RepositoryProvider<ProfileRepository>.value(
                 value: profileRepository),
+            RepositoryProvider<PostRepository>.value(value: postRepository),
           ],
           child: MultiBlocProvider(
             providers: [
@@ -259,6 +278,7 @@ void main() {
             RepositoryProvider<FollowRepository>.value(value: followRepository),
             RepositoryProvider<ProfileRepository>.value(
                 value: profileRepository),
+            RepositoryProvider<PostRepository>.value(value: postRepository),
           ],
           child: MultiBlocProvider(
             providers: [
@@ -295,6 +315,7 @@ void main() {
             RepositoryProvider<FollowRepository>.value(value: followRepository),
             RepositoryProvider<ProfileRepository>.value(
                 value: profileRepository),
+            RepositoryProvider<PostRepository>.value(value: postRepository),
           ],
           child: MultiBlocProvider(
             providers: [
@@ -389,6 +410,7 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
           router: router,
         ),
       );
@@ -424,6 +446,7 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
           router: router,
         ),
       );
@@ -472,6 +495,7 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
           router: router,
         ),
       );
@@ -516,6 +540,7 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
           router: router,
         ),
       );
@@ -566,6 +591,7 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
           router: router,
         ),
       );
@@ -608,6 +634,7 @@ void main() {
           searchBloc,
           followRepository,
           profileRepository,
+          postRepository,
           router: router,
         ),
       );
