@@ -36,6 +36,8 @@ final class FollowRequested extends FollowEvent {
   const FollowRequested({
     required this.followerId,
     required this.followeeId,
+    this.followerDisplayName,
+    this.followerAvatarUrl,
   });
 
   /// The UID of the user who wants to follow.
@@ -44,8 +46,19 @@ final class FollowRequested extends FollowEvent {
   /// The UID of the user to be followed.
   final String followeeId;
 
+  /// Denormalised display name of the follower, for the notification payload.
+  final String? followerDisplayName;
+
+  /// Avatar URL of the follower, or `null` if not set.
+  final String? followerAvatarUrl;
+
   @override
-  List<Object?> get props => [followerId, followeeId];
+  List<Object?> get props => [
+        followerId,
+        followeeId,
+        followerDisplayName,
+        followerAvatarUrl,
+      ];
 }
 
 /// Requests that [followerId] unfollows [followeeId].

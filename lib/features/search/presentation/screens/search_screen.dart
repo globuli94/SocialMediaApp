@@ -9,9 +9,12 @@ import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/notifications/domain/repositories/notification_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
 import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
+import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
 import 'package:social_network/features/profile/presentation/widgets/avatar_widget.dart';
 import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
 import 'package:social_network/features/search/presentation/bloc/search_event.dart';
@@ -195,6 +198,7 @@ class _SearchResultItem extends StatelessWidget {
     return BlocProvider<FollowBloc>(
       create: (ctx) => FollowBloc(
         followRepository: ctx.read<FollowRepository>(),
+        notificationRepository: ctx.read<NotificationRepository>(),
       )..add(
           FollowWatchRequested(
             followerId: currentUid,
@@ -255,10 +259,22 @@ class _FollowButton extends StatelessWidget {
                     ),
                   );
             } else {
+              final authState = context.read<AuthBloc>().state;
+              final profileState = context.read<ProfileBloc>().state;
+              final displayName = authState is AuthAuthenticated
+                  ? authState.user.displayName
+                  : null;
+              final avatarUrl = profileState is ProfileLoaded
+                  ? profileState.profile.avatarUrl
+                  : profileState is ProfileUpdating
+                      ? profileState.profile.avatarUrl
+                      : null;
               context.read<FollowBloc>().add(
                     FollowRequested(
                       followerId: currentUid,
                       followeeId: targetUid,
+                      followerDisplayName: displayName,
+                      followerAvatarUrl: avatarUrl,
                     ),
                   );
             }

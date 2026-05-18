@@ -17,6 +17,7 @@ import 'package:social_network/features/chat/presentation/screens/chat_screen.da
 import 'package:social_network/features/chat/presentation/screens/conversations_screen.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/notifications/domain/repositories/notification_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_list_bloc.dart';
 import 'package:social_network/features/follow/presentation/screens/followers_screen.dart';
 import 'package:social_network/features/follow/presentation/screens/following_screen.dart';
@@ -27,6 +28,7 @@ import 'package:social_network/features/profile/domain/repositories/profile_repo
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:social_network/features/profile/presentation/screens/profile_screen.dart';
+import 'package:social_network/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 /// A [ChangeNotifier] that triggers a router refresh whenever the auth stream
@@ -109,6 +111,8 @@ GoRouter createRouter({required AuthRepository authRepository}) {
               BlocProvider<FollowBloc>(
                 create: (_) => FollowBloc(
                   followRepository: context.read<FollowRepository>(),
+                  notificationRepository:
+                      context.read<NotificationRepository>(),
                 ),
               ),
               BlocProvider<PostBloc>(
@@ -146,6 +150,11 @@ GoRouter createRouter({required AuthRepository authRepository}) {
             },
           ),
         ],
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotificationsScreen(),
       ),
       GoRoute(
         path: '/post/create',

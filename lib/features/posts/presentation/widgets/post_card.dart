@@ -110,6 +110,7 @@ class PostCard extends StatelessWidget {
               postId: post.id,
               likeCount: post.likeCount,
               currentUserUid: currentUserUid,
+              postAuthorUid: post.authorUid,
             ),
           ],
         ),

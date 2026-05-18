@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
+import 'package:social_network/features/notifications/domain/repositories/notification_repository.dart';
 
 /// BLoC that manages follow/unfollow state for a viewed user profile.
 ///
@@ -17,8 +18,11 @@ import 'package:social_network/features/follow/presentation/bloc/follow_state.da
 /// in their own event-type pipeline and are not blocked by the watch stream.
 class FollowBloc extends Bloc<FollowEvent, FollowState> {
   /// Creates a [FollowBloc] with the given [followRepository].
-  FollowBloc({required FollowRepository followRepository})
-      : _repository = followRepository,
+  FollowBloc({
+    required FollowRepository followRepository,
+    NotificationRepository? notificationRepository,
+  })  : _repository = followRepository,
+        _notificationRepository = notificationRepository,
         super(const FollowInitial()) {
     on<FollowWatchRequested>(_onWatchRequested);
     on<FollowRequested>(_onFollowRequested);
@@ -26,6 +30,7 @@ class FollowBloc extends Bloc<FollowEvent, FollowState> {
   }
 
   final FollowRepository _repository;
+  final NotificationRepository? _notificationRepository;
 
   /// Subscribes to real-time follow-status snapshots via [Emitter.forEach].
   Future<void> _onWatchRequested(
@@ -53,6 +58,17 @@ class FollowBloc extends Bloc<FollowEvent, FollowState> {
         followerId: event.followerId,
         followeeId: event.followeeId,
       );
+      // Fire a follow notification when all guard conditions pass.
+      if (_notificationRepository != null &&
+          event.followerDisplayName != null &&
+          event.followerId != event.followeeId) {
+        await _notificationRepository.createFollowNotification(
+          recipientUid: event.followeeId,
+          actorUid: event.followerId,
+          actorDisplayName: event.followerDisplayName!,
+          actorAvatarUrl: event.followerAvatarUrl,
+        );
+      }
     } catch (e) {
       emit(FollowFailure(error: e.toString()));
     }

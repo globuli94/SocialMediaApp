@@ -35,6 +35,9 @@ class LikeToggled extends LikeEvent {
     required this.userId,
     required this.isLiked,
     this.currentLikeCount = 0,
+    this.postAuthorUid,
+    this.actorDisplayName,
+    this.actorAvatarUrl,
   });
 
   final String postId;
@@ -42,6 +45,23 @@ class LikeToggled extends LikeEvent {
   final bool isLiked;
   final int currentLikeCount;
 
+  /// UID of the post author — used to address the notification recipient.
+  final String? postAuthorUid;
+
+  /// Denormalised display name of the liker, for the notification payload.
+  final String? actorDisplayName;
+
+  /// Avatar URL of the liker, or `null` if not set.
+  final String? actorAvatarUrl;
+
   @override
-  List<Object?> get props => [postId, userId, isLiked, currentLikeCount];
+  List<Object?> get props => [
+        postId,
+        userId,
+        isLiked,
+        currentLikeCount,
+        postAuthorUid,
+        actorDisplayName,
+        actorAvatarUrl,
+      ];
 }

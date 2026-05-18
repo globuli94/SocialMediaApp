@@ -2,12 +2,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
 import 'package:social_network/features/chat/presentation/screens/conversations_screen.dart';
 import 'package:social_network/features/feed/presentation/screens/feed_screen.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notifications_state.dart';
 import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
@@ -49,6 +52,10 @@ class _AppShellScreenState extends State<AppShellScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Social Network'),
+        actions: const [_NotificationBellIcon()],
+      ),
       body: IndexedStack(
         index: _selectedIndex,
         children: [
@@ -92,6 +99,32 @@ class _AppShellScreenState extends State<AppShellScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Bell icon that shows an unread badge when there are unseen notifications.
+class _NotificationBellIcon extends StatelessWidget {
+  const _NotificationBellIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<NotificationsBloc, NotificationsState>(
+      builder: (context, state) {
+        final unread =
+            state is NotificationsLoaded ? state.unreadCount : 0;
+        final icon = IconButton(
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () => context.go('/notifications'),
+        );
+        if (unread > 0) {
+          return Badge(
+            label: Text('$unread'),
+            child: icon,
+          );
+        }
+        return icon;
+      },
     );
   }
 }

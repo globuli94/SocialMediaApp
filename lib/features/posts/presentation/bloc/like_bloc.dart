@@ -3,6 +3,7 @@
 // LikeBloc — manages like/unlike state for a post.
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:social_network/features/notifications/domain/repositories/notification_repository.dart';
 import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/like_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/like_state.dart';
@@ -15,13 +16,16 @@ class LikeBloc extends Bloc<LikeEvent, LikeState> {
   /// Creates a [LikeBloc].
   LikeBloc({
     required PostRepository postRepository,
+    NotificationRepository? notificationRepository,
   })  : _postRepository = postRepository,
+        _notificationRepository = notificationRepository,
         super(const LikeInitial()) {
     on<LikeFetched>(_onLikeFetched);
     on<LikeToggled>(_onLikeToggled);
   }
 
   final PostRepository _postRepository;
+  final NotificationRepository? _notificationRepository;
   int _currentLikeCount = 0;
 
   /// Fetches and streams the initial like state.
@@ -69,6 +73,19 @@ class LikeBloc extends Bloc<LikeEvent, LikeState> {
         await _postRepository.unlikePost(event.postId, event.userId);
       } else {
         await _postRepository.likePost(event.postId, event.userId);
+        // Fire a like notification when all guard conditions pass.
+        if (_notificationRepository != null &&
+            event.postAuthorUid != null &&
+            event.actorDisplayName != null &&
+            event.postAuthorUid != event.userId) {
+          await _notificationRepository.createLikeNotification(
+            recipientUid: event.postAuthorUid!,
+            actorUid: event.userId,
+            actorDisplayName: event.actorDisplayName!,
+            actorAvatarUrl: event.actorAvatarUrl,
+            postId: event.postId,
+          );
+        }
       }
       // Stream will update via the watchPostLiked listener in _onLikeFetched
     } catch (e) {

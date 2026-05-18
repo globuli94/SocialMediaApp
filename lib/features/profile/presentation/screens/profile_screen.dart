@@ -197,6 +197,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _FollowButton(
                             currentUid: currentUid ?? _currentUid ?? '',
                             targetUid: _resolvedUid ?? '',
+                            currentDisplayName: authState is AuthAuthenticated
+                                ? authState.user.displayName
+                                : null,
                           ),
                           const SizedBox(width: 12),
                           OutlinedButton(
@@ -296,10 +299,12 @@ class _FollowButton extends StatelessWidget {
   const _FollowButton({
     required this.currentUid,
     required this.targetUid,
+    this.currentDisplayName,
   });
 
   final String currentUid;
   final String targetUid;
+  final String? currentDisplayName;
 
   @override
   Widget build(BuildContext context) {
@@ -326,6 +331,7 @@ class _FollowButton extends StatelessWidget {
                     FollowRequested(
                       followerId: currentUid,
                       followeeId: targetUid,
+                      followerDisplayName: currentDisplayName,
                     ),
                   );
             }
