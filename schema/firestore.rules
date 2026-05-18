@@ -51,6 +51,20 @@ service cloud.firestore {
       }
     }
 
+    // Notifications subcollection: users/{userId}/notifications
+    // - Owner can list/read their own notifications.
+    // - Any authenticated user can create a notification in any user's subcollection
+    //   (required for like and follow events written by a third party).
+    // - Owner can update only the `read` field on their own notification documents.
+    // - No delete permitted.
+    match /users/{userId}/notifications/{notificationId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+
     // Conversations collection
     // Only participants (uids listed in participantUids) may read, create, or update
     // a conversation document. No other collection rules are affected.

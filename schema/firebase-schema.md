@@ -99,5 +99,26 @@ Each document is one message in the conversation thread.
 
 ---
 
+---
+
+## users/{userId}/notifications
+
+Stores in-app notifications for a user. Written by any authenticated user (for like/follow events) and read/updated only by the recipient.
+
+**Path:** `users/{recipientUid}/notifications/{notificationId}`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| id | string | yes | Auto-generated document ID |
+| type | string | yes | Notification category — `like` or `follow` |
+| actorUid | string | yes | UID of the user who triggered the notification |
+| actorDisplayName | string | yes | Display name of the actor (denormalized for display) |
+| actorAvatarUrl | string | no | Avatar URL of the actor; null/absent if not set |
+| postId | string | no | For `like` notifications — the liked post ID; null/absent for `follow` notifications |
+| read | bool | yes | Whether the notification has been read — default `false` |
+| createdAt | timestamp | yes | When the notification was created |
+
+---
+
 > *Additional collections will be defined here as features are added.
 > All changes require a ticket assigned to the Firebase Agent.*
