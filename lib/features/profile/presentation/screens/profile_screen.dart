@@ -8,6 +8,9 @@ import 'package:go_router/go_router.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
@@ -84,7 +87,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         authState is AuthAuthenticated ? authState.user.uid : null;
     final isOwnProfile = widget.uid == null || widget.uid == currentUid;
 
-    return Scaffold(
+    return BlocListener<ConversationsBloc, ConversationsState>(
+      listener: (context, state) {
+        if (state is ConversationsNavigateToChat) {
+          final conv = state.conversation;
+          final currentUid = _currentUid ?? '';
+          final otherUid = conv.participantUids.firstWhere(
+            (uid) => uid != currentUid,
+            orElse: () => conv.participantUids.first,
+          );
+          context.push(
+            '/chat/${conv.id}',
+            extra: <String, String>{
+              'currentUid': currentUid,
+              'recipientUid': otherUid,
+            },
+          );
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
@@ -169,9 +190,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     if (!isOwnProfile) ...[
                       const SizedBox(height: 24),
-                      _FollowButton(
-                        currentUid: currentUid ?? _currentUid ?? '',
-                        targetUid: _resolvedUid ?? '',
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _FollowButton(
+                            currentUid: currentUid ?? _currentUid ?? '',
+                            targetUid: _resolvedUid ?? '',
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton(
+                            onPressed: () {
+                              final myUid = currentUid ?? _currentUid ?? '';
+                              final otherUid = _resolvedUid ?? '';
+                              context.read<ConversationsBloc>().add(
+                                    ConversationsOpenOrCreate(
+                                      currentUid: myUid,
+                                      otherUid: otherUid,
+                                    ),
+                                  );
+                            },
+                            child: const Text('Message'),
+                          ),
+                        ],
                       ),
                     ],
                     if (state is ProfileUpdating) ...[
@@ -245,6 +285,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           };
         },
       ),
+    ),
     );
   }
 }
