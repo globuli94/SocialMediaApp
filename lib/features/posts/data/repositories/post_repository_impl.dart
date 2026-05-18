@@ -31,16 +31,6 @@ class PostRepositoryImpl implements PostRepository {
   }
 
   @override
-  Stream<List<PostEntity>> watchPostsByAuthor(String authorUid) {
-    return _firestore
-        .collection('posts')
-        .where('authorUid', isEqualTo: authorUid)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map(_docToEntity).toList());
-  }
-
-  @override
   Future<PostEntity> createPost({
     required String authorUid,
     required String authorDisplayName,

@@ -11,9 +11,6 @@ import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
-import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
-import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
-import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_state.dart';
@@ -58,11 +55,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context
           .read<ProfileBloc>()
           .add(ProfileWatchRequested(uid: targetUid));
-
-      // Start watching posts by author.
-      context
-          .read<PostBloc>()
-          .add(PostWatchByAuthorStarted(authorUid: targetUid));
 
       // Start watching follow status when viewing another user's profile.
       if (currentUid != null && targetUid != currentUid) {
@@ -143,19 +135,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _StatChip(
                           label: 'Posts',
                           value: profile.postCount,
-                          onTap: null,
                         ),
                         const SizedBox(width: 32),
                         _StatChip(
                           label: 'Followers',
                           value: profile.followerCount,
-                          onTap: () => context.push('/profile/$_resolvedUid/followers'),
                         ),
                         const SizedBox(width: 32),
                         _StatChip(
                           label: 'Following',
                           value: profile.followingCount,
-                          onTap: () => context.push('/profile/$_resolvedUid/following'),
                         ),
                       ],
                     ),
@@ -170,13 +159,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 16),
                       const CircularProgressIndicator(),
                     ],
-                    const SizedBox(height: 32),
-                    Text(
-                      'Posts',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    _PostsGrid(),
                   ],
                 ),
               ),
@@ -262,11 +244,7 @@ class _FollowButton extends StatelessWidget {
 
 /// Small chip that displays a stat label and numeric value.
 class _StatChip extends StatelessWidget {
-  const _StatChip({
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
+  const _StatChip({required this.label, required this.value});
 
   /// Label shown below the numeric value.
   final String label;
@@ -274,12 +252,9 @@ class _StatChip extends StatelessWidget {
   /// Numeric count to display.
   final int value;
 
-  /// Callback when the chip is tapped. If null, the chip is not tappable.
-  final VoidCallback? onTap;
-
   @override
   Widget build(BuildContext context) {
-    final child = Column(
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
@@ -291,77 +266,6 @@ class _StatChip extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
-    );
-
-    if (onTap != null) {
-      return GestureDetector(
-        onTap: onTap,
-        child: child,
-      );
-    }
-    return child;
-  }
-}
-
-/// Grid widget that displays a user's posts.
-class _PostsGrid extends StatelessWidget {
-  const _PostsGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<PostBloc, PostState>(
-      builder: (context, state) {
-        if (state is PostInitial || state is PostLoading) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        } else if (state is PostLoaded) {
-          if (state.posts.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No posts yet'),
-              ),
-            );
-          }
-          return GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 4,
-              mainAxisSpacing: 4,
-            ),
-            itemCount: state.posts.length,
-            itemBuilder: (context, index) {
-              final post = state.posts[index];
-              return Container(
-                color: Colors.grey[300],
-                child: post.imageUrl != null
-                    ? Image.network(
-                        post.imageUrl!,
-                        fit: BoxFit.cover,
-                      )
-                    : const Center(
-                        child: Icon(Icons.image),
-                      ),
-              );
-            },
-          );
-        } else if (state is PostFailure) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('Error loading posts: ${state.error}'),
-            ),
-          );
-        } else {
-          return const SizedBox.shrink();
-        }
-      },
     );
   }
 }

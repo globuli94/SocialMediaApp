@@ -4,7 +4,6 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
-import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
 
 /// Concrete implementation of [FollowRepository] backed by [FirebaseFirestore].
 ///
@@ -111,76 +110,5 @@ class FollowRepositoryImpl implements FollowRepository {
         .doc(followeeId)
         .snapshots()
         .map((s) => s.exists);
-  }
-
-  @override
-  Stream<List<UserProfileEntity>> watchFollowers(String uid) {
-    return _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('followers')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .asyncMap((snapshot) async {
-          final followerIds = snapshot.docs
-              .map((doc) => doc['followerId'] as String)
-              .toList();
-
-          if (followerIds.isEmpty) {
-            return [];
-          }
-
-          final profiles = await Future.wait(
-            followerIds.map((followerId) =>
-                _firestore.collection('users').doc(followerId).get()),
-          );
-
-          return profiles
-              .where((doc) => doc.exists)
-              .map(_docToUserProfile)
-              .toList();
-        });
-  }
-
-  @override
-  Stream<List<UserProfileEntity>> watchFollowing(String uid) {
-    return _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('following')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .asyncMap((snapshot) async {
-          final followingIds = snapshot.docs
-              .map((doc) => doc['followeeId'] as String)
-              .toList();
-
-          if (followingIds.isEmpty) {
-            return [];
-          }
-
-          final profiles = await Future.wait(
-            followingIds.map((followeeId) =>
-                _firestore.collection('users').doc(followeeId).get()),
-          );
-
-          return profiles
-              .where((doc) => doc.exists)
-              .map(_docToUserProfile)
-              .toList();
-        });
-  }
-
-  UserProfileEntity _docToUserProfile(DocumentSnapshot<Object?> doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return UserProfileEntity(
-      uid: doc.id,
-      displayName: data['displayName'] as String? ?? 'Unknown',
-      bio: data['bio'] as String? ?? '',
-      avatarUrl: data['avatarUrl'] as String?,
-      postCount: data['postCount'] as int? ?? 0,
-      followerCount: data['followerCount'] as int? ?? 0,
-      followingCount: data['followingCount'] as int? ?? 0,
-    );
   }
 }
