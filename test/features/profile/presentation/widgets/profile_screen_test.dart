@@ -6,6 +6,9 @@
 //
 // Updated after SOCAA-252: PostBloc is now scoped to the /profile/:uid route
 // so all ProfileScreen tests must provide it.
+//
+// Updated after FEAT-011: ProfileScreen now uses ConversationsBloc for the
+// Message button (other user's profile), so all tests must provide it.
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +20,9 @@ import 'package:social_network/features/auth/domain/entities/user_entity.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
@@ -46,6 +52,10 @@ class MockFollowBloc extends MockBloc<FollowEvent, FollowState>
 class MockPostBloc extends MockBloc<PostEvent, PostState> implements PostBloc {}
 
 class MockPostRepository extends Mock implements PostRepository {}
+
+class MockConversationsBloc
+    extends MockBloc<ConversationsEvent, ConversationsState>
+    implements ConversationsBloc {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -93,6 +103,7 @@ Widget _buildSubject({
   required MockFollowBloc followBloc,
   required MockPostBloc postBloc,
   required MockPostRepository postRepository,
+  required MockConversationsBloc conversationsBloc,
   String? uid,
 }) {
   final router = GoRouter(
@@ -137,6 +148,7 @@ Widget _buildSubject({
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<FollowBloc>.value(value: followBloc),
         BlocProvider<PostBloc>.value(value: postBloc),
+        BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -153,6 +165,7 @@ void main() {
   late MockFollowBloc followBloc;
   late MockPostBloc postBloc;
   late MockPostRepository postRepository;
+  late MockConversationsBloc conversationsBloc;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -165,6 +178,8 @@ void main() {
         const UnfollowRequested(followerId: '', followeeId: ''));
     registerFallbackValue(
         const PostsByAuthorWatchStarted(authorUid: ''));
+    registerFallbackValue(
+        const ConversationsOpenOrCreate(currentUid: '', otherUid: ''));
   });
 
   setUp(() {
@@ -173,6 +188,11 @@ void main() {
     followBloc = MockFollowBloc();
     postBloc = MockPostBloc();
     postRepository = MockPostRepository();
+    conversationsBloc = MockConversationsBloc();
+    when(() => conversationsBloc.state)
+        .thenReturn(const ConversationsInitial());
+    when(() => conversationsBloc.stream)
+        .thenAnswer((_) => const Stream.empty());
 
     // Default auth state: authenticated as testUser.
     when(() => authBloc.state)
@@ -202,6 +222,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -224,6 +245,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -249,6 +271,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -264,6 +287,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -278,6 +302,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-me',
         ),
       );
@@ -293,6 +318,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -317,6 +343,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -335,6 +362,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -353,6 +381,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -378,6 +407,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -402,6 +432,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -430,6 +461,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -445,6 +477,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-me',
         ),
       );
@@ -464,6 +497,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -480,6 +514,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -512,6 +547,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -532,6 +568,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -551,6 +588,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -570,6 +608,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -596,6 +635,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -625,6 +665,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -655,6 +696,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           uid: 'uid-other',
         ),
       );
@@ -692,6 +734,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           // uid null → resolvedUid = 'uid-me' (from auth)
         ),
       );
@@ -729,6 +772,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -757,6 +801,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
       await tester.pump();
@@ -777,6 +822,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -796,6 +842,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
         ),
       );
 
@@ -816,6 +863,7 @@ void main() {
           followBloc: followBloc,
           postBloc: postBloc,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
           // uid null → resolvedUid = 'uid-me'
         ),
       );

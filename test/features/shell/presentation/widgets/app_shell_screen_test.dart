@@ -15,6 +15,11 @@
 // Updated to provide PostRepository after SOCAA-252: AppShellScreen creates a
 // scoped PostBloc for the Profile tab via context.read<PostRepository>().
 //
+// Updated to provide ConversationsBloc and ChatRepository after FEAT-011 added
+// the Messages tab (ConversationsScreen requires ConversationsBloc in the tree).
+// Profile tab moved from index 2 to index 3 (Feed=0, Search=1, Messages=2,
+// Profile=3).
+//
 // Note: tests that navigate to the Profile tab use pump() instead of
 // pumpAndSettle() because ProfileScreen shows a CircularProgressIndicator
 // (in ProfileInitial state) whose animation never settles.
@@ -28,6 +33,10 @@ import 'package:social_network/features/auth/domain/entities/user_entity.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_event.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
+import 'package:social_network/features/chat/domain/repositories/chat_repository.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
+import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/posts/domain/repositories/post_repository.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
@@ -59,6 +68,12 @@ class MockFollowRepository extends Mock implements FollowRepository {}
 
 class MockPostRepository extends Mock implements PostRepository {}
 
+class MockConversationsBloc
+    extends MockBloc<ConversationsEvent, ConversationsState>
+    implements ConversationsBloc {}
+
+class MockChatRepository extends Mock implements ChatRepository {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -70,11 +85,14 @@ Widget _buildSubject({
   required MockSearchBloc searchBloc,
   required MockFollowRepository followRepository,
   required MockPostRepository postRepository,
+  required MockConversationsBloc conversationsBloc,
+  required MockChatRepository chatRepository,
 }) {
   return MultiRepositoryProvider(
     providers: [
       RepositoryProvider<FollowRepository>.value(value: followRepository),
       RepositoryProvider<PostRepository>.value(value: postRepository),
+      RepositoryProvider<ChatRepository>.value(value: chatRepository),
     ],
     child: MultiBlocProvider(
       providers: [
@@ -82,6 +100,7 @@ Widget _buildSubject({
         BlocProvider<PostBloc>.value(value: postBloc),
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<SearchBloc>.value(value: searchBloc),
+        BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
       ],
       child: const MaterialApp(
         home: AppShellScreen(),
@@ -107,6 +126,8 @@ void main() {
   late MockSearchBloc searchBloc;
   late MockFollowRepository followRepository;
   late MockPostRepository postRepository;
+  late MockConversationsBloc conversationsBloc;
+  late MockChatRepository chatRepository;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -116,6 +137,7 @@ void main() {
       const SearchQueryChanged(query: '', currentUid: ''),
     );
     registerFallbackValue(const SearchCleared());
+    registerFallbackValue(const ConversationsWatchStarted(''));
   });
 
   setUp(() {
@@ -125,6 +147,8 @@ void main() {
     searchBloc = MockSearchBloc();
     followRepository = MockFollowRepository();
     postRepository = MockPostRepository();
+    conversationsBloc = MockConversationsBloc();
+    chatRepository = MockChatRepository();
     // Scoped PostBloc created by AppShellScreen calls watchPostsByAuthorUid.
     when(() => postRepository.watchPostsByAuthorUid(any()))
         .thenAnswer((_) => const Stream.empty());
@@ -141,11 +165,16 @@ void main() {
     // Default search: initial state (shows prompt, no FollowRepository needed).
     when(() => searchBloc.state).thenReturn(const SearchInitial());
     when(() => searchBloc.stream).thenAnswer((_) => const Stream.empty());
+    // Default conversations: initial state.
+    when(() => conversationsBloc.state)
+        .thenReturn(const ConversationsInitial());
+    when(() => conversationsBloc.stream)
+        .thenAnswer((_) => const Stream.empty());
   });
 
   group('AppShellScreen', () {
     testWidgets(
-        'renders a NavigationBar with Feed, Search, and Profile destinations',
+        'renders a NavigationBar with Feed, Search, Messages, and Profile destinations',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         _buildSubject(
@@ -155,6 +184,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -162,6 +193,7 @@ void main() {
       // 'Feed' appears as both AppBar title and NavigationBar label.
       expect(find.text('Feed'), findsWidgets);
       expect(find.text('Search'), findsOneWidget);
+      expect(find.text('Messages'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
     });
 
@@ -175,6 +207,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -192,6 +226,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -210,6 +246,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -227,6 +265,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -249,6 +289,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -268,6 +310,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -289,6 +333,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -314,6 +360,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -341,6 +389,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -350,7 +400,7 @@ void main() {
     });
 
     testWidgets(
-        'NavigationBar selectedIndex updates to 2 after tapping Profile',
+        'NavigationBar selectedIndex updates to 3 after tapping Profile',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         _buildSubject(
@@ -360,6 +410,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -368,8 +420,8 @@ void main() {
 
       final NavigationBar navBar =
           tester.widget<NavigationBar>(find.byType(NavigationBar));
-      // Profile is now index 2 (Feed=0, Search=1, Profile=2).
-      expect(navBar.selectedIndex, 2);
+      // Profile is now index 3 (Feed=0, Search=1, Messages=2, Profile=3).
+      expect(navBar.selectedIndex, 3);
     });
 
     testWidgets('tapping Search tab shows SearchScreen prompt',
@@ -382,6 +434,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -402,6 +456,8 @@ void main() {
           searchBloc: searchBloc,
           followRepository: followRepository,
           postRepository: postRepository,
+          conversationsBloc: conversationsBloc,
+          chatRepository: chatRepository,
         ),
       );
 
@@ -420,7 +476,7 @@ void main() {
     // Root cause: The global ProfileBloc watch was overwritten when viewing
     // another user's profile. Fix: _onDestinationSelected dispatches
     // ProfileWatchRequested(uid: currentUser.uid) every time the Profile tab
-    // (index 2) is activated.
+    // (index 3 after FEAT-011 added Messages tab at index 2) is activated.
 
     group('BUG-006 fix — Profile tab re-watches own profile', () {
       const testUid = 'test-user-uid-123';
@@ -446,6 +502,8 @@ void main() {
             searchBloc: searchBloc,
             followRepository: followRepository,
             postRepository: postRepository,
+            conversationsBloc: conversationsBloc,
+            chatRepository: chatRepository,
           ),
         );
 
@@ -476,6 +534,8 @@ void main() {
             searchBloc: searchBloc,
             followRepository: followRepository,
             postRepository: postRepository,
+            conversationsBloc: conversationsBloc,
+            chatRepository: chatRepository,
           ),
         );
 
@@ -506,6 +566,8 @@ void main() {
             searchBloc: searchBloc,
             followRepository: followRepository,
             postRepository: postRepository,
+            conversationsBloc: conversationsBloc,
+            chatRepository: chatRepository,
           ),
         );
 
@@ -547,6 +609,8 @@ void main() {
             searchBloc: searchBloc,
             followRepository: followRepository,
             postRepository: postRepository,
+            conversationsBloc: conversationsBloc,
+            chatRepository: chatRepository,
           ),
         );
 
@@ -587,6 +651,8 @@ void main() {
             searchBloc: searchBloc,
             followRepository: followRepository,
             postRepository: postRepository,
+            conversationsBloc: conversationsBloc,
+            chatRepository: chatRepository,
           ),
         );
 
