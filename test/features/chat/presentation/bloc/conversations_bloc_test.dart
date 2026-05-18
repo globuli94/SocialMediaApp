@@ -19,12 +19,16 @@ import 'package:social_network/features/chat/domain/repositories/chat_repository
 import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
+import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
+import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
+class MockProfileRepository extends Mock implements ProfileRepository {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -52,6 +56,7 @@ ConversationEntity _makeConversation({
 
 void main() {
   late MockChatRepository mockRepo;
+  late MockProfileRepository mockProfileRepo;
 
   setUpAll(() {
     registerFallbackValue(_makeConversation());
@@ -59,6 +64,15 @@ void main() {
 
   setUp(() {
     mockRepo = MockChatRepository();
+    mockProfileRepo = MockProfileRepository();
+    when(() => mockProfileRepo.getProfile(any())).thenAnswer(
+      (_) async => const UserProfileEntity(
+        uid: 'uid-other',
+        displayName: 'Other User',
+        bio: '',
+        postCount: 0,
+      ),
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -73,7 +87,7 @@ void main() {
           (_) => Stream.value([_makeConversation()]),
         );
       },
-      build: () => ConversationsBloc(chatRepository: mockRepo),
+      build: () => ConversationsBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(const ConversationsWatchStarted('uid-me')),
       expect: () => [
         isA<ConversationsLoading>(),
@@ -92,7 +106,7 @@ void main() {
           (_) => Stream.value([]),
         );
       },
-      build: () => ConversationsBloc(chatRepository: mockRepo),
+      build: () => ConversationsBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(const ConversationsWatchStarted('uid-me')),
       expect: () => [
         isA<ConversationsLoading>(),
@@ -108,7 +122,7 @@ void main() {
           (_) => Stream.error(Exception('Firestore error')),
         );
       },
-      build: () => ConversationsBloc(chatRepository: mockRepo),
+      build: () => ConversationsBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(const ConversationsWatchStarted('uid-me')),
       expect: () => [
         isA<ConversationsLoading>(),
@@ -133,7 +147,7 @@ void main() {
           await controller.close();
         });
       },
-      build: () => ConversationsBloc(chatRepository: mockRepo),
+      build: () => ConversationsBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       act: (bloc) => bloc.add(const ConversationsWatchStarted('uid-me')),
       expect: () => [
         isA<ConversationsLoading>(),
@@ -190,7 +204,7 @@ void main() {
           () => mockRepo.getOrCreateConversation('uid-me', 'uid-other'),
         ).thenAnswer((_) async => _makeConversation());
       },
-      build: () => ConversationsBloc(chatRepository: mockRepo),
+      build: () => ConversationsBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
       seed: () => ConversationsLoaded(
         conversations: [_makeConversation()],
         currentUid: 'uid-me',

@@ -35,12 +35,16 @@ import 'package:social_network/features/chat/presentation/bloc/chat_state.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
+import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
+import 'package:social_network/features/profile/domain/repositories/profile_repository.dart';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
+class MockProfileRepository extends Mock implements ProfileRepository {}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -292,9 +296,11 @@ void main() {
 
     group('AC4 — non-participant denied read access', () {
       late MockChatRepository mockRepo;
+      late MockProfileRepository mockProfileRepo;
 
       setUp(() {
         mockRepo = MockChatRepository();
+        mockProfileRepo = MockProfileRepository();
         // markAsRead is called on ChatWatchStarted; stub it to avoid unrelated failure.
         when(
           () => mockRepo.markAsRead(
@@ -302,6 +308,14 @@ void main() {
             uid: any(named: 'uid'),
           ),
         ).thenAnswer((_) async {});
+        when(() => mockProfileRepo.getProfile(any())).thenAnswer(
+          (_) async => const UserProfileEntity(
+            uid: 'uid-other',
+            displayName: 'Other User',
+            bio: '',
+            postCount: 0,
+          ),
+        );
       });
 
       blocTest<ConversationsBloc, ConversationsState>(
@@ -312,7 +326,7 @@ void main() {
             (_) => Stream.error(_permissionDenied()),
           );
         },
-        build: () => ConversationsBloc(chatRepository: mockRepo),
+        build: () => ConversationsBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
         act: (bloc) =>
             bloc.add(const ConversationsWatchStarted('uid-stranger')),
         expect: () => [
@@ -329,7 +343,7 @@ void main() {
             (_) => Stream.error(_permissionDenied()),
           );
         },
-        build: () => ChatBloc(chatRepository: mockRepo),
+        build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
         act: (bloc) => bloc.add(
           const ChatWatchStarted(
             conversationId: 'conv-private',
@@ -356,7 +370,7 @@ void main() {
             ),
           );
         },
-        build: () => ChatBloc(chatRepository: mockRepo),
+        build: () => ChatBloc(chatRepository: mockRepo, profileRepository: mockProfileRepo),
         act: (bloc) => bloc.add(
           const ChatWatchStarted(
             conversationId: 'conv-private-2',
