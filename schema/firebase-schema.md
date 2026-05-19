@@ -44,6 +44,21 @@ Tracks the users who follow `userId`. Written atomically alongside `followerCoun
 | followerId | string | yes | UID of the user who is following — matches the document ID |
 | createdAt | timestamp | yes | Time the follow relationship was created |
 
+### Subcollection: users/{uid}/notifications/{notificationId}
+
+Stores in-app notifications for the user. Created by other authenticated users when a like or follow event occurs (non-owner writes). Only the owner may read or mark notifications as read.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| id | string | yes | Auto-generated document ID |
+| type | string | yes | Notification type — `'like'` or `'follow'` |
+| actorUid | string | yes | UID of the user who triggered the notification |
+| actorDisplayName | string | yes | Cached display name of the actor at notification creation time |
+| actorAvatarUrl | string | no | Cached avatar URL of the actor; null/absent if actor has no avatar |
+| postId | string | no | ID of the liked post; only present when `type == 'like'` |
+| isRead | bool | yes | Whether the notification has been read by the owner — default `false` |
+| createdAt | timestamp | yes | When the notification was created |
+
 ---
 
 ## posts

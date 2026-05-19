@@ -48,6 +48,7 @@ import 'package:social_network/features/profile/presentation/bloc/profile_state.
 import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
 import 'package:social_network/features/search/presentation/bloc/search_event.dart';
 import 'package:social_network/features/search/presentation/bloc/search_state.dart';
+import 'package:social_network/features/notifications/presentation/bloc/unread_count_cubit.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -74,6 +75,8 @@ class MockConversationsBloc
 
 class MockChatRepository extends Mock implements ChatRepository {}
 
+class MockUnreadCountCubit extends MockCubit<int> implements UnreadCountCubit {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -87,6 +90,7 @@ Widget _buildSubject({
   required MockPostRepository postRepository,
   required MockConversationsBloc conversationsBloc,
   required MockChatRepository chatRepository,
+  required MockUnreadCountCubit unreadCountCubit,
 }) {
   return MultiRepositoryProvider(
     providers: [
@@ -101,6 +105,7 @@ Widget _buildSubject({
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<SearchBloc>.value(value: searchBloc),
         BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+        BlocProvider<UnreadCountCubit>.value(value: unreadCountCubit),
       ],
       child: const MaterialApp(
         home: AppShellScreen(),
@@ -128,6 +133,7 @@ void main() {
   late MockPostRepository postRepository;
   late MockConversationsBloc conversationsBloc;
   late MockChatRepository chatRepository;
+  late MockUnreadCountCubit unreadCountCubit;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -149,6 +155,7 @@ void main() {
     postRepository = MockPostRepository();
     conversationsBloc = MockConversationsBloc();
     chatRepository = MockChatRepository();
+    unreadCountCubit = MockUnreadCountCubit();
     // Scoped PostBloc created by AppShellScreen calls watchPostsByAuthorUid.
     when(() => postRepository.watchPostsByAuthorUid(any()))
         .thenAnswer((_) => const Stream.empty());
@@ -170,6 +177,7 @@ void main() {
         .thenReturn(const ConversationsInitial());
     when(() => conversationsBloc.stream)
         .thenAnswer((_) => const Stream.empty());
+    when(() => unreadCountCubit.state).thenReturn(0);
   });
 
   group('AppShellScreen', () {
@@ -186,6 +194,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -209,6 +218,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -228,6 +238,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -248,6 +259,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -267,6 +279,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -291,6 +304,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -312,6 +326,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -335,6 +350,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -362,6 +378,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -391,6 +408,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -412,6 +430,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -436,6 +455,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -458,6 +478,7 @@ void main() {
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
           chatRepository: chatRepository,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -504,6 +525,7 @@ void main() {
             postRepository: postRepository,
             conversationsBloc: conversationsBloc,
             chatRepository: chatRepository,
+            unreadCountCubit: unreadCountCubit,
           ),
         );
 
@@ -536,6 +558,7 @@ void main() {
             postRepository: postRepository,
             conversationsBloc: conversationsBloc,
             chatRepository: chatRepository,
+            unreadCountCubit: unreadCountCubit,
           ),
         );
 
@@ -568,6 +591,7 @@ void main() {
             postRepository: postRepository,
             conversationsBloc: conversationsBloc,
             chatRepository: chatRepository,
+            unreadCountCubit: unreadCountCubit,
           ),
         );
 
@@ -611,6 +635,7 @@ void main() {
             postRepository: postRepository,
             conversationsBloc: conversationsBloc,
             chatRepository: chatRepository,
+            unreadCountCubit: unreadCountCubit,
           ),
         );
 
@@ -653,6 +678,7 @@ void main() {
             postRepository: postRepository,
             conversationsBloc: conversationsBloc,
             chatRepository: chatRepository,
+            unreadCountCubit: unreadCountCubit,
           ),
         );
 

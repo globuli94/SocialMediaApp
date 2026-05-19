@@ -27,6 +27,17 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow create, delete: if request.auth != null && request.auth.uid == followerId;
       }
+
+      // notifications subcollection: only the owner may read and update (mark as read);
+      // any authenticated user may create a notification in any user's subcollection
+      // (required for like and follow events where the actor writes to another user's doc).
+      match /notifications/{notificationId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      }
     }
 
     // Posts collection
