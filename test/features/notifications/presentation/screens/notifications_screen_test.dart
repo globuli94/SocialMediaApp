@@ -14,7 +14,6 @@ import 'package:social_network/features/notifications/domain/entities/notificati
 import 'package:social_network/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:social_network/features/notifications/presentation/bloc/notification_state.dart';
 import 'package:social_network/features/notifications/presentation/screens/notifications_screen.dart';
-import 'package:social_network/features/notifications/presentation/widgets/notification_tile.dart';
 
 // ---------------------------------------------------------------------------
 // Mocks

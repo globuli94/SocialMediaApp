@@ -10,7 +10,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:social_network/features/notifications/domain/entities/notification_model.dart';
 import 'package:social_network/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:social_network/features/notifications/presentation/bloc/notification_event.dart';
-import 'package:social_network/features/notifications/presentation/bloc/notification_state.dart';
 import 'package:social_network/features/notifications/presentation/widgets/notification_tile.dart';
 
 // ---------------------------------------------------------------------------
