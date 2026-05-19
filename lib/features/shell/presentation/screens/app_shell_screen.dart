@@ -118,9 +118,12 @@ class _NotificationBellIcon extends StatelessWidget {
           onPressed: () => context.go('/notifications'),
         );
         if (unread > 0) {
-          return Badge(
-            label: Text('$unread'),
-            child: icon,
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Badge(
+              label: Text('$unread'),
+              child: icon,
+            ),
           );
         }
         return icon;
