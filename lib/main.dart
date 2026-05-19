@@ -24,6 +24,8 @@ import 'package:social_network/features/chat/data/repositories/chat_repository_i
 import 'package:social_network/features/chat/domain/repositories/chat_repository.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
+import 'package:social_network/features/notifications/data/repositories/notification_repository.dart';
+import 'package:social_network/features/notifications/presentation/bloc/unread_count_cubit.dart';
 import 'package:social_network/features/profile/data/datasources/profile_auth_service.dart';
 import 'package:social_network/features/profile/data/datasources/profile_firestore_service.dart';
 import 'package:social_network/features/profile/data/datasources/profile_remote_data_source.dart';
@@ -69,12 +71,14 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
   late final PostRepository _postRepository;
   late final FollowRepository _followRepository;
   late final ChatRepository _chatRepository;
+  late final NotificationRepository _notificationRepository;
   late final AuthBloc _authBloc;
   late final ProfileBloc _profileBloc;
   late final PostBloc _postBloc;
   late final FollowBloc _followBloc;
   late final SearchBloc _searchBloc;
   late final ConversationsBloc _conversationsBloc;
+  late final UnreadCountCubit _unreadCountCubit;
   late final GoRouter _router;
 
   @override
@@ -113,6 +117,12 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     _chatRepository = ChatRepositoryImpl(
       firestore: FirebaseFirestore.instance,
     );
+    _notificationRepository = NotificationRepository(
+      firestore: FirebaseFirestore.instance,
+    );
+    _unreadCountCubit = UnreadCountCubit(
+      notificationRepository: _notificationRepository,
+    );
     _conversationsBloc = ConversationsBloc(
       chatRepository: _chatRepository,
       profileRepository: _profileRepository,
@@ -124,14 +134,13 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
         _conversationsBloc.add(
           ConversationsWatchStarted(authState.user.uid),
         );
+        _unreadCountCubit.startWatching(authState.user.uid);
       }
     });
     if (_authBloc.state is AuthAuthenticated) {
-      _conversationsBloc.add(
-        ConversationsWatchStarted(
-          (_authBloc.state as AuthAuthenticated).user.uid,
-        ),
-      );
+      final uid = (_authBloc.state as AuthAuthenticated).user.uid;
+      _conversationsBloc.add(ConversationsWatchStarted(uid));
+      _unreadCountCubit.startWatching(uid);
     }
     _router = createRouter(authRepository: _authRepository);
   }
@@ -144,6 +153,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     _followBloc.close();
     _searchBloc.close();
     _conversationsBloc.close();
+    _unreadCountCubit.close();
     super.dispose();
   }
 
@@ -155,6 +165,9 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
         RepositoryProvider<ProfileRepository>.value(value: _profileRepository),
         RepositoryProvider<FollowRepository>.value(value: _followRepository),
         RepositoryProvider<ChatRepository>.value(value: _chatRepository),
+        RepositoryProvider<NotificationRepository>.value(
+          value: _notificationRepository,
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -164,6 +177,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
           BlocProvider<FollowBloc>.value(value: _followBloc),
           BlocProvider<SearchBloc>.value(value: _searchBloc),
           BlocProvider<ConversationsBloc>.value(value: _conversationsBloc),
+          BlocProvider<UnreadCountCubit>.value(value: _unreadCountCubit),
         ],
         child: MaterialApp.router(
           title: 'Social Network',

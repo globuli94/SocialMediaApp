@@ -128,6 +128,17 @@ class PostRepositoryImpl implements PostRepository {
 
   @override
   Future<void> likePost(String postId, String userId) async {
+    // Fetch the post to determine the author, and fetch the actor's profile so
+    // we can write a rich notification document in the same batch.
+    final postDoc = await _firestore.collection('posts').doc(postId).get();
+    final actorDoc = await _firestore.collection('users').doc(userId).get();
+
+    final postData = postDoc.data() ?? {};
+    final actorData = actorDoc.data() ?? {};
+    final postAuthorUid = postData['authorUid'] as String? ?? '';
+    final actorDisplayName = actorData['displayName'] as String? ?? '';
+    final actorAvatarUrl = actorData['avatarUrl'] as String?;
+
     final batch = _firestore.batch();
     final postRef = _firestore.collection('posts').doc(postId);
     final likeRef = postRef.collection('likes').doc(userId);
@@ -139,6 +150,24 @@ class PostRepositoryImpl implements PostRepository {
       'userId': userId,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    // Write a like notification unless the liker is the post author.
+    if (postAuthorUid.isNotEmpty && postAuthorUid != userId) {
+      final notifRef = _firestore
+          .collection('users')
+          .doc(postAuthorUid)
+          .collection('notifications')
+          .doc();
+      batch.set(notifRef, {
+        'type': 'like',
+        'actorUid': userId,
+        'actorDisplayName': actorDisplayName,
+        'actorAvatarUrl': actorAvatarUrl,
+        'postId': postId,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
 
     await batch.commit();
   }

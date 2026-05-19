@@ -22,6 +22,14 @@ class FollowRepositoryImpl implements FollowRepository {
     required String followerId,
     required String followeeId,
   }) async {
+    // Fetch the follower's profile so we can write a rich notification document
+    // in the same batch without extra round-trips.
+    final followerDoc =
+        await _firestore.collection('users').doc(followerId).get();
+    final followerData = followerDoc.data() ?? {};
+    final actorDisplayName = followerData['displayName'] as String? ?? '';
+    final actorAvatarUrl = followerData['avatarUrl'] as String?;
+
     final batch = _firestore.batch();
 
     // Write following entry under follower's subcollection.
@@ -57,6 +65,24 @@ class FollowRepositoryImpl implements FollowRepository {
     batch.update(followeeDocRef, {
       'followerCount': FieldValue.increment(1),
     });
+
+    // Write a follow notification unless the user is following themselves.
+    if (followerId != followeeId) {
+      final notifRef = _firestore
+          .collection('users')
+          .doc(followeeId)
+          .collection('notifications')
+          .doc();
+      batch.set(notifRef, {
+        'type': 'follow',
+        'actorUid': followerId,
+        'actorDisplayName': actorDisplayName,
+        'actorAvatarUrl': actorAvatarUrl,
+        'postId': null,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
 
     await batch.commit();
   }

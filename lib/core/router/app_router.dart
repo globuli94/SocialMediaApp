@@ -11,10 +11,16 @@ import 'package:social_network/features/auth/domain/repositories/auth_repository
 import 'package:social_network/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/login_screen.dart';
 import 'package:social_network/features/auth/presentation/screens/signup_screen.dart';
+import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
 import 'package:social_network/features/chat/domain/repositories/chat_repository.dart';
 import 'package:social_network/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:social_network/features/chat/presentation/screens/chat_screen.dart';
 import 'package:social_network/features/chat/presentation/screens/conversations_screen.dart';
+import 'package:social_network/features/notifications/data/repositories/notification_repository.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notification_bloc.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notification_event.dart';
+import 'package:social_network/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_list_bloc.dart';
@@ -151,6 +157,21 @@ GoRouter createRouter({required AuthRepository authRepository}) {
         path: '/post/create',
         builder: (BuildContext context, GoRouterState state) =>
             const CreatePostScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (BuildContext context, GoRouterState state) {
+          final authState = context.read<AuthBloc>().state;
+          final uid =
+              authState is AuthAuthenticated ? authState.user.uid : '';
+          return BlocProvider<NotificationBloc>(
+            create: (_) => NotificationBloc(
+              notificationRepository:
+                  context.read<NotificationRepository>(),
+            )..add(NotificationsSubscribed(uid)),
+            child: const NotificationsScreen(),
+          );
+        },
       ),
       GoRoute(
         path: '/chat',

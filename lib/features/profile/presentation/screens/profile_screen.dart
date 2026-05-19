@@ -12,6 +12,7 @@ import 'package:social_network/features/chat/presentation/bloc/conversations_blo
 import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/notifications/presentation/bloc/unread_count_cubit.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
@@ -110,6 +111,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
+          BlocBuilder<UnreadCountCubit, int>(
+            builder: (context, count) => IconButton(
+              tooltip: 'Notifications',
+              icon: Badge(
+                isLabelVisible: count > 0,
+                label: Text(count > 9 ? '9+' : '$count'),
+                child: const Icon(Icons.notifications_outlined),
+              ),
+              onPressed: () => context.push('/notifications'),
+            ),
+          ),
           if (isOwnProfile) ...[
             TextButton(
               onPressed: () => context.push('/profile/edit'),
