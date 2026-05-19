@@ -42,6 +42,7 @@ import 'package:social_network/features/posts/domain/repositories/post_repositor
 import 'package:social_network/features/posts/presentation/bloc/post_bloc.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_event.dart';
 import 'package:social_network/features/posts/presentation/bloc/post_state.dart';
+import 'package:social_network/features/notifications/presentation/bloc/unread_count_cubit.dart';
 import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:social_network/features/profile/presentation/bloc/profile_event.dart';
@@ -67,6 +68,8 @@ class MockPostRepository extends Mock implements PostRepository {}
 class MockConversationsBloc
     extends MockBloc<ConversationsEvent, ConversationsState>
     implements ConversationsBloc {}
+
+class MockUnreadCountCubit extends MockCubit<int> implements UnreadCountCubit {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -120,6 +123,7 @@ Widget _buildNavigationSubject({
   required MockPostBloc postBloc,
   required MockPostRepository postRepository,
   required MockConversationsBloc conversationsBloc,
+  required MockUnreadCountCubit unreadCountCubit,
   required GoRouter router,
 }) {
   return RepositoryProvider<PostRepository>.value(
@@ -131,6 +135,7 @@ Widget _buildNavigationSubject({
         BlocProvider<FollowBloc>.value(value: followBloc),
         BlocProvider<PostBloc>.value(value: postBloc),
         BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+        BlocProvider<UnreadCountCubit>.value(value: unreadCountCubit),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -169,6 +174,7 @@ void _stubDefaults({
   required MockPostBloc postBloc,
   required MockPostRepository postRepository,
   required MockConversationsBloc conversationsBloc,
+  required MockUnreadCountCubit unreadCountCubit,
   UserProfileEntity profile = _otherProfile,
 }) {
   when(() => authBloc.state)
@@ -183,6 +189,7 @@ void _stubDefaults({
       .thenReturn(const ConversationsInitial());
   when(() => conversationsBloc.stream)
       .thenAnswer((_) => const Stream.empty());
+  when(() => unreadCountCubit.state).thenReturn(0);
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +203,7 @@ void main() {
   late MockPostBloc postBloc;
   late MockPostRepository postRepository;
   late MockConversationsBloc conversationsBloc;
+  late MockUnreadCountCubit unreadCountCubit;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -219,6 +227,7 @@ void main() {
     postBloc = MockPostBloc();
     postRepository = MockPostRepository();
     conversationsBloc = MockConversationsBloc();
+    unreadCountCubit = MockUnreadCountCubit();
   });
 
   // -------------------------------------------------------------------------
@@ -236,6 +245,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         profile: _otherProfile,
       );
       when(() => followBloc.state)
@@ -249,6 +259,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         router: router,
       ));
       await tester.pump();
@@ -266,6 +277,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         profile: _otherProfile,
       );
       when(() => followBloc.state)
@@ -279,6 +291,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         router: router,
       ));
       await tester.pump();
@@ -312,6 +325,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         profile: _ownProfile,
       );
 
@@ -334,6 +348,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         router: router,
       ));
       await tester.pump();
@@ -351,6 +366,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         profile: _ownProfile,
       );
 
@@ -373,6 +389,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         router: router,
       ));
       await tester.pump();
@@ -400,6 +417,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         profile: _otherProfile,
       );
       when(() => conversationsBloc.stream)
@@ -413,6 +431,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         router: router,
       ));
       await tester.pumpAndSettle();
@@ -454,6 +473,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         profile: _otherProfile,
       );
       when(() => conversationsBloc.stream)
@@ -467,6 +487,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         router: router,
       ));
       await tester.pumpAndSettle();
@@ -504,6 +525,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         profile: _otherProfile,
       );
       when(() => conversationsBloc.stream)
@@ -517,6 +539,7 @@ void main() {
         postBloc: postBloc,
         postRepository: postRepository,
         conversationsBloc: conversationsBloc,
+        unreadCountCubit: unreadCountCubit,
         router: router,
       ));
       await tester.pumpAndSettle();

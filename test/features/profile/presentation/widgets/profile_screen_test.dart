@@ -24,6 +24,7 @@ import 'package:social_network/features/chat/presentation/bloc/conversations_blo
 import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
+import 'package:social_network/features/notifications/presentation/bloc/unread_count_cubit.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
 import 'package:social_network/features/posts/domain/entities/post_entity.dart';
@@ -56,6 +57,8 @@ class MockPostRepository extends Mock implements PostRepository {}
 class MockConversationsBloc
     extends MockBloc<ConversationsEvent, ConversationsState>
     implements ConversationsBloc {}
+
+class MockUnreadCountCubit extends MockCubit<int> implements UnreadCountCubit {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -104,6 +107,7 @@ Widget _buildSubject({
   required MockPostBloc postBloc,
   required MockPostRepository postRepository,
   required MockConversationsBloc conversationsBloc,
+  required MockUnreadCountCubit unreadCountCubit,
   String? uid,
 }) {
   final router = GoRouter(
@@ -149,6 +153,7 @@ Widget _buildSubject({
         BlocProvider<FollowBloc>.value(value: followBloc),
         BlocProvider<PostBloc>.value(value: postBloc),
         BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+        BlocProvider<UnreadCountCubit>.value(value: unreadCountCubit),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -166,6 +171,7 @@ void main() {
   late MockPostBloc postBloc;
   late MockPostRepository postRepository;
   late MockConversationsBloc conversationsBloc;
+  late MockUnreadCountCubit unreadCountCubit;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -189,10 +195,12 @@ void main() {
     postBloc = MockPostBloc();
     postRepository = MockPostRepository();
     conversationsBloc = MockConversationsBloc();
+    unreadCountCubit = MockUnreadCountCubit();
     when(() => conversationsBloc.state)
         .thenReturn(const ConversationsInitial());
     when(() => conversationsBloc.stream)
         .thenAnswer((_) => const Stream.empty());
+    when(() => unreadCountCubit.state).thenReturn(0);
 
     // Default auth state: authenticated as testUser.
     when(() => authBloc.state)
@@ -223,6 +231,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -246,6 +255,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -272,6 +282,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -288,6 +299,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -303,6 +315,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-me',
         ),
       );
@@ -319,6 +332,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -344,6 +358,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -363,6 +378,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -382,6 +398,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -408,6 +425,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -433,6 +451,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -462,6 +481,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -478,6 +498,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-me',
         ),
       );
@@ -498,6 +519,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -515,6 +537,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -548,6 +571,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -569,6 +593,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -589,6 +614,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -609,6 +635,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -636,6 +663,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -666,6 +694,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -697,6 +726,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           uid: 'uid-other',
         ),
       );
@@ -735,6 +765,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           // uid null → resolvedUid = 'uid-me' (from auth)
         ),
       );
@@ -773,6 +804,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -802,6 +834,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
       await tester.pump();
@@ -823,6 +856,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -843,6 +877,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
         ),
       );
 
@@ -864,6 +899,7 @@ void main() {
           postBloc: postBloc,
           postRepository: postRepository,
           conversationsBloc: conversationsBloc,
+          unreadCountCubit: unreadCountCubit,
           // uid null → resolvedUid = 'uid-me'
         ),
       );

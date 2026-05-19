@@ -59,6 +59,7 @@ import 'package:social_network/features/chat/domain/repositories/chat_repository
 import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
+import 'package:social_network/features/notifications/presentation/bloc/unread_count_cubit.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -89,6 +90,8 @@ class MockConversationsBloc
 
 class MockChatRepository extends Mock implements ChatRepository {}
 
+class MockUnreadCountCubit extends MockCubit<int> implements UnreadCountCubit {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -109,7 +112,8 @@ Widget _buildApp(
   MockProfileRepository profileRepository,
   MockPostRepository postRepository,
   MockConversationsBloc conversationsBloc,
-  MockChatRepository chatRepository, {
+  MockChatRepository chatRepository,
+  MockUnreadCountCubit unreadCountCubit, {
   GoRouter? router,
 }) {
   final effectiveRouter = router ?? createRouter(authRepository: mockRepo);
@@ -127,6 +131,7 @@ Widget _buildApp(
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<SearchBloc>.value(value: searchBloc),
         BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+        BlocProvider<UnreadCountCubit>.value(value: unreadCountCubit),
       ],
       child: MaterialApp.router(routerConfig: effectiveRouter),
     ),
@@ -148,6 +153,7 @@ void main() {
   late MockPostRepository postRepository;
   late MockConversationsBloc conversationsBloc;
   late MockChatRepository chatRepository;
+  late MockUnreadCountCubit unreadCountCubit;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -171,12 +177,14 @@ void main() {
     postRepository = MockPostRepository();
     conversationsBloc = MockConversationsBloc();
     chatRepository = MockChatRepository();
+    unreadCountCubit = MockUnreadCountCubit();
     // Scoped PostBloc (created by AppShellScreen and /profile/:uid route)
     // calls watchPostsByAuthorUid and watchPostLiked on the real repository.
     when(() => postRepository.watchPostsByAuthorUid(any()))
         .thenAnswer((_) => const Stream.empty());
     when(() => postRepository.watchPostLiked(any(), any()))
         .thenAnswer((_) => Stream.value(false));
+    when(() => unreadCountCubit.state).thenReturn(0);
     when(() => mockBloc.state).thenReturn(const AuthInitial());
     when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
     when(() => postBloc.state).thenReturn(const PostLoaded(posts: []));
@@ -249,6 +257,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          unreadCountCubit,
         ),
       );
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
@@ -447,6 +456,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          unreadCountCubit,
           router: router,
         ),
       );
@@ -485,6 +495,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          unreadCountCubit,
           router: router,
         ),
       );
@@ -536,6 +547,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          unreadCountCubit,
           router: router,
         ),
       );
@@ -583,6 +595,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          unreadCountCubit,
           router: router,
         ),
       );
@@ -636,6 +649,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          unreadCountCubit,
           router: router,
         ),
       );
@@ -681,6 +695,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          unreadCountCubit,
           router: router,
         ),
       );
