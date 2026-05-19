@@ -59,6 +59,9 @@ import 'package:social_network/features/chat/domain/repositories/chat_repository
 import 'package:social_network/features/chat/presentation/bloc/conversations_bloc.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_event.dart';
 import 'package:social_network/features/chat/presentation/bloc/conversations_state.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notifications_event.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notifications_state.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -89,6 +92,10 @@ class MockConversationsBloc
 
 class MockChatRepository extends Mock implements ChatRepository {}
 
+class MockNotificationsBloc
+    extends MockBloc<NotificationsEvent, NotificationsState>
+    implements NotificationsBloc {}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -109,7 +116,8 @@ Widget _buildApp(
   MockProfileRepository profileRepository,
   MockPostRepository postRepository,
   MockConversationsBloc conversationsBloc,
-  MockChatRepository chatRepository, {
+  MockChatRepository chatRepository,
+  MockNotificationsBloc notificationsBloc, {
   GoRouter? router,
 }) {
   final effectiveRouter = router ?? createRouter(authRepository: mockRepo);
@@ -127,6 +135,7 @@ Widget _buildApp(
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<SearchBloc>.value(value: searchBloc),
         BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+        BlocProvider<NotificationsBloc>.value(value: notificationsBloc),
       ],
       child: MaterialApp.router(routerConfig: effectiveRouter),
     ),
@@ -148,6 +157,7 @@ void main() {
   late MockPostRepository postRepository;
   late MockConversationsBloc conversationsBloc;
   late MockChatRepository chatRepository;
+  late MockNotificationsBloc notificationsBloc;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -158,6 +168,7 @@ void main() {
     );
     registerFallbackValue(const SearchCleared());
     registerFallbackValue(const ConversationsWatchStarted(''));
+    registerFallbackValue(const NotificationsWatchStarted(''));
   });
 
   setUp(() {
@@ -171,6 +182,7 @@ void main() {
     postRepository = MockPostRepository();
     conversationsBloc = MockConversationsBloc();
     chatRepository = MockChatRepository();
+    notificationsBloc = MockNotificationsBloc();
     // Scoped PostBloc (created by AppShellScreen and /profile/:uid route)
     // calls watchPostsByAuthorUid and watchPostLiked on the real repository.
     when(() => postRepository.watchPostsByAuthorUid(any()))
@@ -188,6 +200,10 @@ void main() {
     when(() => conversationsBloc.state)
         .thenReturn(const ConversationsInitial());
     when(() => conversationsBloc.stream)
+        .thenAnswer((_) => const Stream.empty());
+    when(() => notificationsBloc.state)
+        .thenReturn(const NotificationsLoaded([]));
+    when(() => notificationsBloc.stream)
         .thenAnswer((_) => const Stream.empty());
   });
 
@@ -249,6 +265,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          notificationsBloc,
         ),
       );
       await tester.pumpAndSettle(); // LoginScreen has no ongoing animations.
@@ -280,6 +297,7 @@ void main() {
               BlocProvider<ProfileBloc>.value(value: profileBloc),
               BlocProvider<SearchBloc>.value(value: searchBloc),
               BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+              BlocProvider<NotificationsBloc>.value(value: notificationsBloc),
             ],
             child: MaterialApp.router(routerConfig: router),
           ),
@@ -318,6 +336,7 @@ void main() {
               BlocProvider<ProfileBloc>.value(value: profileBloc),
               BlocProvider<SearchBloc>.value(value: searchBloc),
               BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+              BlocProvider<NotificationsBloc>.value(value: notificationsBloc),
             ],
             child: MaterialApp.router(routerConfig: router),
           ),
@@ -357,6 +376,7 @@ void main() {
               BlocProvider<ProfileBloc>.value(value: profileBloc),
               BlocProvider<SearchBloc>.value(value: searchBloc),
               BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+              BlocProvider<NotificationsBloc>.value(value: notificationsBloc),
             ],
             child: MaterialApp.router(routerConfig: router),
           ),
@@ -447,6 +467,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          notificationsBloc,
           router: router,
         ),
       );
@@ -485,6 +506,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          notificationsBloc,
           router: router,
         ),
       );
@@ -536,6 +558,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          notificationsBloc,
           router: router,
         ),
       );
@@ -583,6 +606,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          notificationsBloc,
           router: router,
         ),
       );
@@ -636,6 +660,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          notificationsBloc,
           router: router,
         ),
       );
@@ -681,6 +706,7 @@ void main() {
           postRepository,
           conversationsBloc,
           chatRepository,
+          notificationsBloc,
           router: router,
         ),
       );

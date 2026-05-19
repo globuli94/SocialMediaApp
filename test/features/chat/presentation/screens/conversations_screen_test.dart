@@ -33,6 +33,9 @@ import 'package:social_network/features/profile/presentation/bloc/profile_state.
 import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
 import 'package:social_network/features/search/presentation/bloc/search_event.dart';
 import 'package:social_network/features/search/presentation/bloc/search_state.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notifications_event.dart';
+import 'package:social_network/features/notifications/presentation/bloc/notifications_state.dart';
 import 'package:social_network/features/shell/presentation/screens/app_shell_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -58,6 +61,10 @@ class MockFollowRepository extends Mock implements FollowRepository {}
 class MockPostRepository extends Mock implements PostRepository {}
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
+class MockNotificationsBloc
+    extends MockBloc<NotificationsEvent, NotificationsState>
+    implements NotificationsBloc {}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -99,6 +106,7 @@ Widget _buildSubject({
   required MockFollowRepository followRepository,
   required MockPostRepository postRepository,
   required MockChatRepository chatRepository,
+  required MockNotificationsBloc notificationsBloc,
 }) {
   return MultiRepositoryProvider(
     providers: [
@@ -113,6 +121,7 @@ Widget _buildSubject({
         BlocProvider<ProfileBloc>.value(value: profileBloc),
         BlocProvider<SearchBloc>.value(value: searchBloc),
         BlocProvider<ConversationsBloc>.value(value: conversationsBloc),
+        BlocProvider<NotificationsBloc>.value(value: notificationsBloc),
       ],
       child: const MaterialApp(
         home: AppShellScreen(),
@@ -134,6 +143,7 @@ void main() {
   late MockFollowRepository followRepository;
   late MockPostRepository postRepository;
   late MockChatRepository chatRepository;
+  late MockNotificationsBloc notificationsBloc;
 
   setUpAll(() {
     registerFallbackValue(const ProfileLoadRequested(uid: ''));
@@ -144,6 +154,7 @@ void main() {
     );
     registerFallbackValue(const SearchCleared());
     registerFallbackValue(const ConversationsWatchStarted(''));
+    registerFallbackValue(const NotificationsWatchStarted(''));
   });
 
   setUp(() {
@@ -155,6 +166,7 @@ void main() {
     followRepository = MockFollowRepository();
     postRepository = MockPostRepository();
     chatRepository = MockChatRepository();
+    notificationsBloc = MockNotificationsBloc();
 
     when(() => postRepository.watchPostsByAuthorUid(any()))
         .thenAnswer((_) => const Stream.empty());
@@ -174,6 +186,10 @@ void main() {
         .thenReturn(const ConversationsInitial());
     when(() => conversationsBloc.stream)
         .thenAnswer((_) => const Stream.empty());
+    when(() => notificationsBloc.state)
+        .thenReturn(const NotificationsLoaded([]));
+    when(() => notificationsBloc.stream)
+        .thenAnswer((_) => const Stream.empty());
   });
 
   Widget buildWidget() => _buildSubject(
@@ -185,6 +201,7 @@ void main() {
         followRepository: followRepository,
         postRepository: postRepository,
         chatRepository: chatRepository,
+        notificationsBloc: notificationsBloc,
       );
 
   group('ConversationsScreen via Messages tab', () {
