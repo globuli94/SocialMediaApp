@@ -58,7 +58,6 @@ void main() {
       testWidgets('renders actor display name and "liked your post" for like notifications',
           (tester) async {
         final mockBloc = MockNotificationBloc();
-        when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
 
         final notif = NotificationModel(
           id: 'notif-1',
@@ -76,8 +75,7 @@ void main() {
           mockBloc: mockBloc,
         ));
 
-        expect(find.text('Bob Smith'), findsWidgets);
-        expect(find.text('liked your post'), findsOneWidget);
+        expect(find.text('Bob Smith liked your post'), findsOneWidget);
       });
 
     });
@@ -90,7 +88,6 @@ void main() {
       testWidgets('unread tile has visually distinct background',
           (tester) async {
         final mockBloc = MockNotificationBloc();
-        when(() => mockBloc.stream).thenAnswer((_) => const Stream.empty());
 
         final notif = NotificationModel(
           id: 'notif-3',

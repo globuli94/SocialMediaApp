@@ -62,6 +62,10 @@ void main() {
             .thenAnswer((_) => Stream.value(const NotificationsLoading()));
         when(() => mockNotifBloc.state)
             .thenReturn(const NotificationsLoading());
+        when(() => mockAuthBloc.stream)
+            .thenAnswer((_) => Stream.value(
+              AuthAuthenticated(user: UserEntity(uid: 'uid-test', email: 'test@example.com', displayName: 'Test')),
+            ));
         when(() => mockAuthBloc.state).thenReturn(
           AuthAuthenticated(user: UserEntity(uid: 'uid-test', email: 'test@example.com', displayName: 'Test')),
         );
@@ -95,8 +99,14 @@ void main() {
         final mockNotifBloc = MockNotificationBloc();
         final mockAuthBloc = MockAuthBloc();
 
+        when(() => mockNotifBloc.stream)
+            .thenAnswer((_) => Stream.value(NotificationsLoaded(notifications: [notif1])));
         when(() => mockNotifBloc.state)
             .thenReturn(NotificationsLoaded(notifications: [notif1]));
+        when(() => mockAuthBloc.stream)
+            .thenAnswer((_) => Stream.value(
+              AuthAuthenticated(user: UserEntity(uid: 'uid-test', email: 'test@example.com', displayName: 'Test')),
+            ));
         when(() => mockAuthBloc.state).thenReturn(
           AuthAuthenticated(user: UserEntity(uid: 'uid-test', email: 'test@example.com', displayName: 'Test')),
         );
@@ -105,6 +115,8 @@ void main() {
           notificationBloc: mockNotifBloc,
           authBloc: mockAuthBloc,
         ));
+
+        await tester.pumpAndSettle();
 
         expect(find.byType(NotificationsScreen), findsOneWidget);
       });
