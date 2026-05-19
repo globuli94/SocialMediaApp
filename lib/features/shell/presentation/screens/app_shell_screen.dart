@@ -115,7 +115,7 @@ class _NotificationBellIcon extends StatelessWidget {
             state is NotificationsLoaded ? state.unreadCount : 0;
         final icon = IconButton(
           icon: const Icon(Icons.notifications_outlined),
-          onPressed: () => context.go('/notifications'),
+          onPressed: () => context.push('/notifications'),
         );
         if (unread > 0) {
           return Padding(
