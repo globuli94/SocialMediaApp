@@ -13,7 +13,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:social_network/features/posts/data/repositories/post_repository_impl.dart';
-import 'package:social_network/features/posts/domain/entities/post_entity.dart';
 
 // ---------------------------------------------------------------------------
 // Mocks & fakes
