@@ -2,6 +2,7 @@
 //
 // PostRepositoryImpl — Firestore + Storage implementation of PostRepository.
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -205,5 +206,71 @@ class PostRepositoryImpl implements PostRepository {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map(_docToEntity).toList());
+  }
+
+  /// Watches the current user's following list and switches to the appropriate
+  /// posts query whenever that list changes (manual switchMap via
+  /// [StreamController]).
+  ///
+  /// - Empty following list → all posts ordered by createdAt desc
+  /// - Non-empty list       → posts where authorUid in list, same order
+  ///
+  /// The composite index on posts(authorUid ASC, createdAt DESC) already
+  /// exists in firestore.indexes.json and covers both the isEqualTo and
+  /// whereIn variants of the authorUid filter.
+  @override
+  Stream<List<PostEntity>> watchFollowingFeed(String currentUserUid) {
+    final controller = StreamController<List<PostEntity>>();
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? postsSub;
+
+    final followingSub = _firestore
+        .collection('users')
+        .doc(currentUserUid)
+        .collection('following')
+        .snapshots()
+        .listen(
+      (followingSnapshot) {
+        postsSub?.cancel();
+
+        final followingUids = followingSnapshot.docs
+            .map((doc) => doc.data()['followeeId'] as String?)
+            .whereType<String>()
+            .toList();
+
+        final Query<Map<String, dynamic>> postsQuery;
+        if (followingUids.isEmpty) {
+          postsQuery = _firestore
+              .collection('posts')
+              .orderBy('createdAt', descending: true);
+        } else {
+          postsQuery = _firestore
+              .collection('posts')
+              .where('authorUid', whereIn: followingUids.take(30).toList())
+              .orderBy('createdAt', descending: true);
+        }
+
+        postsSub = postsQuery.snapshots().listen(
+          (postsSnapshot) {
+            if (!controller.isClosed) {
+              controller.add(postsSnapshot.docs.map(_docToEntity).toList());
+            }
+          },
+          onError: (Object e) {
+            if (!controller.isClosed) controller.addError(e);
+          },
+        );
+      },
+      onError: (Object e) {
+        if (!controller.isClosed) controller.addError(e);
+      },
+    );
+
+    controller.onCancel = () {
+      postsSub?.cancel();
+      followingSub.cancel();
+      if (!controller.isClosed) controller.close();
+    };
+
+    return controller.stream;
   }
 }
