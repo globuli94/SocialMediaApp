@@ -71,3 +71,14 @@ class PostsByAuthorWatchStarted extends PostEvent {
   @override
   List<Object?> get props => [authorUid];
 }
+
+/// Starts watching the following feed for [currentUserUid].
+/// Shows posts from followed users, or all posts if following list is empty.
+class PostFollowingFeedWatchStarted extends PostEvent {
+  const PostFollowingFeedWatchStarted({required this.currentUserUid});
+
+  final String currentUserUid;
+
+  @override
+  List<Object?> get props => [currentUserUid];
+}

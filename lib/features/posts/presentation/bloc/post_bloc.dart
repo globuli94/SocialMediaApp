@@ -15,6 +15,7 @@ class PostBloc extends Bloc<PostEvent, PostState> {
         super(const PostInitial()) {
     on<PostWatchStarted>(_onWatchStarted);
     on<PostsByAuthorWatchStarted>(_onByAuthorWatchStarted);
+    on<PostFollowingFeedWatchStarted>(_onFollowingFeedWatchStarted);
     on<PostsUpdated>(_onPostsUpdated);
     on<PostCreateRequested>(_onCreateRequested);
     on<PostDeleteRequested>(_onDeleteRequested);
@@ -41,6 +42,18 @@ class PostBloc extends Bloc<PostEvent, PostState> {
     emit(const PostLoading());
     await emit.forEach<List<PostEntity>>(
       _repository.watchPostsByAuthorUid(event.authorUid),
+      onData: (posts) => PostLoaded(posts: posts),
+      onError: (error, _) => PostFailure(error: error.toString()),
+    );
+  }
+
+  Future<void> _onFollowingFeedWatchStarted(
+    PostFollowingFeedWatchStarted event,
+    Emitter<PostState> emit,
+  ) async {
+    emit(const PostLoading());
+    await emit.forEach<List<PostEntity>>(
+      _repository.watchFollowingFeed(event.currentUserUid),
       onData: (posts) => PostLoaded(posts: posts),
       onError: (error, _) => PostFailure(error: error.toString()),
     );

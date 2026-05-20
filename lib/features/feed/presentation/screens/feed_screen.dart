@@ -12,6 +12,12 @@ import 'package:social_network/features/posts/presentation/bloc/post_state.dart'
 import 'package:social_network/features/posts/presentation/widgets/post_card.dart';
 
 /// Feed screen — displays the real-time list of posts from Firestore.
+///
+/// When the logged-in user follows at least one person the feed shows only
+/// their posts; otherwise it falls back to all posts. The feed switches
+/// automatically when the following list changes (follow / unfollow), because
+/// [PostFollowingFeedWatchStarted] internally watches the following
+/// subcollection and re-subscribes to the posts query on every change.
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
@@ -29,11 +35,33 @@ class _FeedScreenState extends State<FeedScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
-        context.read<PostBloc>().add(const PostWatchStarted());
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated) {
+          context.read<PostBloc>().add(
+                PostFollowingFeedWatchStarted(
+                  currentUserUid: authState.user.uid,
+                ),
+              );
+        } else {
+          context.read<PostBloc>().add(const PostWatchStarted());
+        }
       } catch (_) {
         // PostBloc unavailable — feed stays in initial state.
       }
     });
+  }
+
+  void _dispatchFeedEvent() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      context.read<PostBloc>().add(
+            PostFollowingFeedWatchStarted(
+              currentUserUid: authState.user.uid,
+            ),
+          );
+    } else {
+      context.read<PostBloc>().add(const PostWatchStarted());
+    }
   }
 
   @override
@@ -72,7 +100,7 @@ class _FeedScreenState extends State<FeedScreen> {
             if (state.posts.isEmpty) {
               return RefreshIndicator(
                 onRefresh: () async {
-                  context.read<PostBloc>().add(const PostWatchStarted());
+                  _dispatchFeedEvent();
                   await context.read<PostBloc>().stream.firstWhere(
                         (s) => s is! PostLoading,
                       );
@@ -92,7 +120,7 @@ class _FeedScreenState extends State<FeedScreen> {
             }
             return RefreshIndicator(
               onRefresh: () async {
-                context.read<PostBloc>().add(const PostWatchStarted());
+                _dispatchFeedEvent();
                 await context.read<PostBloc>().stream.firstWhere(
                       (s) => s is! PostLoading,
                     );

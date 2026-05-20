@@ -44,4 +44,9 @@ abstract class PostRepository {
   /// Emits the latest list of posts authored by [authorUid].
   /// Ordered by createdAt descending.
   Stream<List<PostEntity>> watchPostsByAuthorUid(String authorUid);
+
+  /// Emits posts from users that [currentUserUid] is following, ordered by
+  /// createdAt descending. Falls back to all posts when the following list is
+  /// empty. Automatically switches streams when the following list changes.
+  Stream<List<PostEntity>> watchFollowingFeed(String currentUserUid);
 }
