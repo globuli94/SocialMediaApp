@@ -2,11 +2,11 @@
 //
 // Widget tests for FeedScreen — verifies rendering from PostBloc state:
 // PostLoading spinner, empty state with pull-to-refresh, post list with
-// RefreshIndicator, error message, PostWatchStarted on pull-to-refresh,
+// RefreshIndicator, error message, PostFollowingFeedWatchStarted on pull-to-refresh,
 // and author tap navigation to /profile/:uid.
 //
 // FeedScreen drives its UI exclusively from PostBloc — there is no FeedBloc.
-// The RefreshIndicator re-dispatches PostWatchStarted on pull.
+// The RefreshIndicator re-dispatches PostFollowingFeedWatchStarted on pull.
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
@@ -92,7 +92,7 @@ void main() {
   late MockUnreadCountCubit unreadCountCubit;
 
   setUpAll(() {
-    registerFallbackValue(const PostWatchStarted());
+    registerFallbackValue(const PostFollowingFeedWatchStarted(currentUserUid: 'uid-me'));
     registerFallbackValue(const PostDeleteRequested(postId: ''));
   });
 
@@ -230,11 +230,11 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // RefreshIndicator → PostWatchStarted
+  // RefreshIndicator → PostFollowingFeedWatchStarted
   // -------------------------------------------------------------------------
 
   group('RefreshIndicator', () {
-    testWidgets('dispatches PostWatchStarted on pull-to-refresh',
+    testWidgets('dispatches PostFollowingFeedWatchStarted on pull-to-refresh',
         (tester) async {
       final posts = [_makePost('p1')];
       when(() => postBloc.state).thenReturn(PostLoaded(posts: posts));
@@ -256,10 +256,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      // initState also dispatches PostWatchStarted; the refresh adds at least
+      // initState also dispatches PostFollowingFeedWatchStarted; the refresh adds at least
       // one more — use greaterThanOrEqualTo to account for both.
       verify(
-        () => postBloc.add(const PostWatchStarted()),
+        () => postBloc.add(const PostFollowingFeedWatchStarted(currentUserUid: 'uid-me')),
       ).called(greaterThanOrEqualTo(1));
     });
   });
