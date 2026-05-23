@@ -39,7 +39,10 @@ import 'package:social_network/features/profile/presentation/bloc/profile_bloc.d
 import 'package:social_network/features/follow/data/repositories/follow_repository_impl.dart';
 import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
 import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
-import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
+import 'package:social_network/features/search/data/datasources/user_search_remote_data_source.dart';
+import 'package:social_network/features/search/data/repositories/user_search_repository_impl.dart';
+import 'package:social_network/features/search/domain/repositories/user_search_repository.dart';
+import 'package:social_network/features/search/presentation/bloc/user_search_bloc.dart';
 import 'package:social_network/firebase_options.dart';
 
 /// Application entry point.
@@ -76,7 +79,8 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
   late final ProfileBloc _profileBloc;
   late final PostBloc _postBloc;
   late final FollowBloc _followBloc;
-  late final SearchBloc _searchBloc;
+  late final UserSearchRepository _userSearchRepository;
+  late final UserSearchBloc _userSearchBloc;
   late final ConversationsBloc _conversationsBloc;
   late final UnreadCountCubit _unreadCountCubit;
   late final GoRouter _router;
@@ -113,7 +117,14 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
       firestore: FirebaseFirestore.instance,
     );
     _followBloc = FollowBloc(followRepository: _followRepository);
-    _searchBloc = SearchBloc(profileRepository: _profileRepository);
+    _userSearchRepository = UserSearchRepositoryImpl(
+      remoteDataSource: UserSearchRemoteDataSourceImpl(
+        firestore: FirebaseFirestore.instance,
+      ),
+    );
+    _userSearchBloc = UserSearchBloc(
+      userSearchRepository: _userSearchRepository,
+    );
     _chatRepository = ChatRepositoryImpl(
       firestore: FirebaseFirestore.instance,
     );
@@ -151,7 +162,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
     _profileBloc.close();
     _postBloc.close();
     _followBloc.close();
-    _searchBloc.close();
+    _userSearchBloc.close();
     _conversationsBloc.close();
     _unreadCountCubit.close();
     super.dispose();
@@ -164,6 +175,9 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
         RepositoryProvider<PostRepository>.value(value: _postRepository),
         RepositoryProvider<ProfileRepository>.value(value: _profileRepository),
         RepositoryProvider<FollowRepository>.value(value: _followRepository),
+        RepositoryProvider<UserSearchRepository>.value(
+          value: _userSearchRepository,
+        ),
         RepositoryProvider<ChatRepository>.value(value: _chatRepository),
         RepositoryProvider<NotificationRepository>.value(
           value: _notificationRepository,
@@ -175,7 +189,7 @@ class _SocialNetworkAppState extends State<SocialNetworkApp> {
           BlocProvider<ProfileBloc>.value(value: _profileBloc),
           BlocProvider<PostBloc>.value(value: _postBloc),
           BlocProvider<FollowBloc>.value(value: _followBloc),
-          BlocProvider<SearchBloc>.value(value: _searchBloc),
+          BlocProvider<UserSearchBloc>.value(value: _userSearchBloc),
           BlocProvider<ConversationsBloc>.value(value: _conversationsBloc),
           BlocProvider<UnreadCountCubit>.value(value: _unreadCountCubit),
         ],

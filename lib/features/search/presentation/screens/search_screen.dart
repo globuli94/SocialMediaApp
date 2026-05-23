@@ -2,25 +2,20 @@
 //
 // SearchScreen — allows users to search for other users by display name.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:social_network/features/auth/presentation/bloc/auth_state.dart';
-import 'package:social_network/features/follow/domain/repositories/follow_repository.dart';
-import 'package:social_network/features/follow/presentation/bloc/follow_bloc.dart';
-import 'package:social_network/features/follow/presentation/bloc/follow_event.dart';
-import 'package:social_network/features/follow/presentation/bloc/follow_state.dart';
-import 'package:social_network/features/profile/domain/entities/user_profile_entity.dart';
-import 'package:social_network/features/profile/presentation/widgets/avatar_widget.dart';
-import 'package:social_network/features/search/presentation/bloc/search_bloc.dart';
-import 'package:social_network/features/search/presentation/bloc/search_event.dart';
-import 'package:social_network/features/search/presentation/bloc/search_state.dart';
+import 'package:social_network/features/search/presentation/bloc/user_search_bloc.dart';
+import 'package:social_network/features/search/presentation/bloc/user_search_event.dart';
+import 'package:social_network/features/search/presentation/bloc/user_search_state.dart';
+import 'package:social_network/features/search/presentation/widgets/user_search_result_card.dart';
 
 /// Screen that lets users search for other users by display name.
 ///
-/// Results are debounced (300 ms) and show avatar, display name, and a
-/// Follow/Unfollow button. Tapping a result navigates to that user's profile.
+/// Debounces keystrokes by 500 ms before dispatching [UserSearchQueryChanged].
 class SearchScreen extends StatefulWidget {
   /// Creates a [SearchScreen].
   const SearchScreen({super.key});
@@ -31,11 +26,10 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
+  Timer? _debounce;
 
   /// Returns the signed-in user's UID, or an empty string if not yet
-  /// authenticated. Reading directly from the bloc on each call avoids
-  /// a stale-null race where [didChangeDependencies] fires before
-  /// [AuthBloc] has emitted [AuthAuthenticated].
+  /// authenticated.
   String get _uid {
     final authState = context.read<AuthBloc>().state;
     return authState is AuthAuthenticated ? authState.user.uid : '';
@@ -43,21 +37,30 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   void _onChanged(String query) {
-    final uid = _uid;
-    if (uid.isEmpty) return;
-    context.read<SearchBloc>().add(
-          SearchQueryChanged(query: query, currentUid: uid),
-        );
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      context.read<UserSearchBloc>().add(const UserSearchCleared());
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      final uid = _uid;
+      if (uid.isEmpty) return;
+      context.read<UserSearchBloc>().add(
+            UserSearchQueryChanged(query: query, currentUid: uid),
+          );
+    });
   }
 
   void _onClear() {
+    _debounce?.cancel();
     _controller.clear();
-    context.read<SearchBloc>().add(const SearchCleared());
+    context.read<UserSearchBloc>().add(const UserSearchCleared());
   }
 
   @override
@@ -86,20 +89,21 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
-      body: BlocBuilder<SearchBloc, SearchState>(
+      body: BlocBuilder<UserSearchBloc, UserSearchState>(
         builder: (context, state) {
           return switch (state) {
-            SearchInitial() => const _SearchPrompt(),
-            SearchLoading() => const Center(
-                child: CircularProgressIndicator(),
+            UserSearchInitial() => const _SearchPrompt(),
+            UserSearchLoading() =>
+              const Center(child: CircularProgressIndicator()),
+            UserSearchEmpty() => const _EmptyState(),
+            UserSearchLoaded(:final results) => ListView.builder(
+                itemCount: results.length,
+                itemBuilder: (context, index) => UserSearchResultCard(
+                  profile: results[index],
+                  currentUid: _uid,
+                ),
               ),
-            SearchLoaded(:final results) when results.isEmpty =>
-              const _EmptyState(),
-            SearchLoaded(:final results) => _ResultsList(
-                results: results,
-                currentUid: _uid,
-              ),
-            SearchFailure(:final error) => Center(
+            UserSearchFailure(:final error) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text('Search failed: $error'),
@@ -150,122 +154,6 @@ class _EmptyState extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ResultsList extends StatelessWidget {
-  const _ResultsList({
-    required this.results,
-    required this.currentUid,
-  });
-
-  final List<UserProfileEntity> results;
-  final String currentUid;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        return _SearchResultItem(
-          profile: results[index],
-          currentUid: currentUid,
-        );
-      },
-    );
-  }
-}
-
-/// A single search result row with avatar, display name, and follow button.
-///
-/// Creates its own [FollowBloc] instance so that each row independently
-/// tracks and updates follow status.
-class _SearchResultItem extends StatelessWidget {
-  const _SearchResultItem({
-    required this.profile,
-    required this.currentUid,
-  });
-
-  final UserProfileEntity profile;
-  final String currentUid;
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider<FollowBloc>(
-      create: (ctx) => FollowBloc(
-        followRepository: ctx.read<FollowRepository>(),
-      )..add(
-          FollowWatchRequested(
-            followerId: currentUid,
-            followeeId: profile.uid,
-          ),
-        ),
-      child: ListTile(
-        leading: AvatarWidget(
-          displayName: profile.displayName,
-          avatarUrl: profile.avatarUrl,
-          radius: 24,
-        ),
-        title: Text(profile.displayName),
-        trailing: _FollowButton(
-          currentUid: currentUid,
-          targetUid: profile.uid,
-        ),
-        onTap: () => context.push('/profile/${profile.uid}'),
-      ),
-    );
-  }
-}
-
-/// Follow/Unfollow button that reads its own scoped [FollowBloc].
-class _FollowButton extends StatelessWidget {
-  const _FollowButton({
-    required this.currentUid,
-    required this.targetUid,
-  });
-
-  final String currentUid;
-  final String targetUid;
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<FollowBloc, FollowState>(
-      builder: (context, state) {
-        if (state is FollowLoading || state is FollowInitial) {
-          return const SizedBox(
-            width: 80,
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          );
-        }
-        final isFollowing = state is FollowLoaded && state.isFollowing;
-        return TextButton(
-          onPressed: () {
-            if (isFollowing) {
-              context.read<FollowBloc>().add(
-                    UnfollowRequested(
-                      followerId: currentUid,
-                      followeeId: targetUid,
-                    ),
-                  );
-            } else {
-              context.read<FollowBloc>().add(
-                    FollowRequested(
-                      followerId: currentUid,
-                      followeeId: targetUid,
-                    ),
-                  );
-            }
-          },
-          child: Text(isFollowing ? 'Unfollow' : 'Follow'),
-        );
-      },
     );
   }
 }
